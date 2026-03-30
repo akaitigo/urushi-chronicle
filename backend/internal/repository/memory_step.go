@@ -1,19 +1,12 @@
 package repository
 
 import (
-	"errors"
 	"sort"
 	"sync"
 
 	"github.com/akaitigo/urushi-chronicle/internal/domain"
 	"github.com/google/uuid"
 )
-
-// ErrNotFound is returned when a requested entity does not exist.
-var ErrNotFound = errors.New("not found")
-
-// ErrConflict is returned when a uniqueness constraint is violated.
-var ErrConflict = errors.New("step_order conflict: another step already uses this order")
 
 // MemoryStepRepository is a thread-safe in-memory implementation of StepRepository.
 type MemoryStepRepository struct {
