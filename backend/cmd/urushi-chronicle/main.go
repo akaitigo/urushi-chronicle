@@ -1,7 +1,11 @@
 package main
 
-import "fmt"
+import (
+	"log"
+	"os"
+)
 
 func main() {
-	fmt.Println("urushi-chronicle API server")
+	logger := log.New(os.Stdout, "", log.LstdFlags)
+	logger.Println("urushi-chronicle API server")
 }
