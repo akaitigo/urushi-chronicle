@@ -4,10 +4,9 @@ import (
 	"testing"
 )
 
-// TestMain_Compiles verifies the main package compiles correctly.
-// The actual main() starts an HTTP server, so we test the handlers separately.
-func TestMain_Compiles(t *testing.T) {
-	t.Run("main package compiles", func(t *testing.T) {
-		// This test verifies compilation. Handler logic is tested in handler_test.go.
-	})
+func TestPackageImports(t *testing.T) {
+	// Verify that the main package compiles without error.
+	// The actual main() starts an HTTP server and blocks,
+	// so we only validate that the package builds successfully.
+	t.Log("main package compiles OK")
 }

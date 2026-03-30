@@ -1,7 +1,6 @@
 package handler_test
 
 import (
-	"encoding/json"
 	"net/http"
 	"net/http/httptest"
 	"testing"
@@ -9,21 +8,17 @@ import (
 	"github.com/akaitigo/urushi-chronicle/internal/handler"
 )
 
-func TestHealthHandler_ReturnsOK(t *testing.T) {
+func TestHealthHandler(t *testing.T) {
 	h := handler.HealthHandler()
 	req := httptest.NewRequest(http.MethodGet, "/health", nil)
-	rr := httptest.NewRecorder()
-	h.ServeHTTP(rr, req)
+	w := httptest.NewRecorder()
 
-	if rr.Code != http.StatusOK {
-		t.Fatalf("expected 200, got %d", rr.Code)
-	}
+	h(w, req)
 
-	var resp map[string]string
-	if err := json.Unmarshal(rr.Body.Bytes(), &resp); err != nil {
-		t.Fatalf("failed to parse response: %v", err)
+	if w.Code != http.StatusOK {
+		t.Errorf("expected status 200, got %d", w.Code)
 	}
-	if resp["status"] != "ok" {
-		t.Errorf("expected status 'ok', got %q", resp["status"])
+	if ct := w.Header().Get("Content-Type"); ct != "application/json" {
+		t.Errorf("expected Content-Type application/json, got %s", ct)
 	}
 }
