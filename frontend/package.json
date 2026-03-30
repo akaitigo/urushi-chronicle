@@ -1,0 +1,13 @@
+{
+  "name": "urushi-chronicle-frontend",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc && vite build",
+    "lint": "oxlint src/ && biome format --write src/",
+    "test": "vitest run",
+    "preview": "vite preview"
+  }
+}

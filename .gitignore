@@ -1,0 +1,25 @@
+# Go
+backend/urushi-chronicle
+*.exe
+*.test
+*.out
+
+# Node
+node_modules/
+dist/
+*.tsbuildinfo
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# Environment
+.env
+.env.local
+.env.production
+
+# OS
+.DS_Store
+Thumbs.db
