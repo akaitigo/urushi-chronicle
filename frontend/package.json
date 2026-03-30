@@ -9,5 +9,22 @@
     "lint": "oxlint src/ && biome format --write src/",
     "test": "vitest run",
     "preview": "vite preview"
+  },
+  "dependencies": {
+    "@biomejs/biome": "^2.4.9",
+    "@types/react": "^19.2.14",
+    "@types/react-dom": "^19.2.3",
+    "@vitejs/plugin-react": "^6.0.1",
+    "oxlint": "^1.57.0",
+    "react": "^19.2.4",
+    "react-dom": "^19.2.4",
+    "typescript": "^6.0.2",
+    "vite": "^8.0.3",
+    "vitest": "^4.1.2"
+  },
+  "devDependencies": {
+    "@testing-library/jest-dom": "^6.9.1",
+    "@testing-library/react": "^16.3.2",
+    "jsdom": "^29.0.1"
   }
 }
