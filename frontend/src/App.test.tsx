@@ -14,4 +14,11 @@ describe("App", () => {
       screen.getByText("蒔絵・螺鈿制作工程デジタルアーカイブ"),
     ).toBeDefined();
   });
+
+  it("renders the sensor selector", () => {
+    render(<App />);
+    expect(screen.getByTestId("sensor-selector")).toBeDefined();
+    expect(screen.getByLabelText("センサーID:")).toBeDefined();
+    expect(screen.getByText("データ取得")).toBeDefined();
+  });
 });
