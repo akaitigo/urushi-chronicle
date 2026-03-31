@@ -33,6 +33,18 @@ func (r *MemoryWorkRepository) FindByID(id uuid.UUID) (*domain.Work, error) {
 	return &copied, nil
 }
 
+// FindAll retrieves all works from the repository.
+func (r *MemoryWorkRepository) FindAll() ([]domain.Work, error) {
+	r.mu.RLock()
+	defer r.mu.RUnlock()
+
+	result := make([]domain.Work, 0, len(r.works))
+	for _, w := range r.works {
+		result = append(result, *w)
+	}
+	return result, nil
+}
+
 // Seed adds a work to the repository (for testing/bootstrapping).
 func (r *MemoryWorkRepository) Seed(work *domain.Work) {
 	r.mu.Lock()
