@@ -1,3 +1,5 @@
+version: "2"
+
 run:
   go: "1.24"
 
@@ -7,9 +9,10 @@ linters:
     - govet
     - staticcheck
     - unused
-    - gosimple
     - ineffassign
-    - typecheck
+
+formatters:
+  enable:
     - gofumpt
 
 issues:

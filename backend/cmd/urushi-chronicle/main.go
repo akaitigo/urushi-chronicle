@@ -4,6 +4,7 @@ import (
 	"log"
 	"net/http"
 	"os"
+	"strings"
 	"time"
 
 	"github.com/akaitigo/urushi-chronicle/internal/alert"
@@ -12,6 +13,7 @@ import (
 	"github.com/akaitigo/urushi-chronicle/internal/monitor"
 	"github.com/akaitigo/urushi-chronicle/internal/mqtt"
 	"github.com/akaitigo/urushi-chronicle/internal/repository"
+	"github.com/akaitigo/urushi-chronicle/internal/storage"
 	"github.com/google/uuid"
 )
 
@@ -21,6 +23,8 @@ func main() {
 	// Initialize repositories
 	envRepo := repository.NewMemoryEnvironmentRepository()
 	thresholdRepo := repository.NewMemoryAlertThresholdRepository()
+	workRepo := repository.NewMemoryWorkRepository()
+	stepRepo := repository.NewMemoryStepRepository()
 
 	// Initialize alert notifier (webhook URL from env; empty = no-op)
 	webhookURL := os.Getenv("ALERT_WEBHOOK_URL")
@@ -44,6 +48,21 @@ func main() {
 	}
 	thresholdRepo.Seed(defaultThreshold)
 
+	// Seed a default demo work for the frontend
+	demoWorkID := uuid.MustParse("00000000-0000-0000-0000-000000000001")
+	demoWork := &domain.Work{
+		ID:          demoWorkID,
+		Title:       "蒔絵香合 — 秋草",
+		Description: "秋草文様の蒔絵を施した香合。研出蒔絵技法を用いた習作。",
+		Technique:   domain.TechniqueMakie,
+		Material:    "欅",
+		Status:      domain.WorkStatusInProgress,
+		StartedAt:   now,
+		CreatedAt:   now,
+		UpdatedAt:   now,
+	}
+	workRepo.Seed(demoWork)
+
 	// Initialize MQTT subscriber (topic from env or default)
 	mqttTopic := os.Getenv("MQTT_TOPIC")
 	if mqttTopic == "" {
@@ -53,11 +72,26 @@ func main() {
 
 	// Initialize HTTP handlers
 	envHandler := handler.NewEnvironmentHandler(envRepo, thresholdRepo, monitorSvc)
+	bucketName := os.Getenv("GCS_BUCKET")
+	uploader := storage.NewGCSUploader(bucketName)
+	workHandler := handler.NewWorkHandler(workRepo)
+	stepHandler := handler.NewStepHandler(stepRepo, workRepo, uploader)
 
 	// Register routes
 	mux := http.NewServeMux()
 	mux.HandleFunc("/health", handler.HealthHandler())
 	mux.Handle("/api/v1/environment/", envHandler)
+
+	// /api/v1/works/ prefix: dispatch to StepHandler when path contains "/steps",
+	// otherwise delegate to WorkHandler for single-work lookups.
+	mux.HandleFunc("/api/v1/works/", func(w http.ResponseWriter, r *http.Request) {
+		if strings.Contains(r.URL.Path, "/steps") {
+			stepHandler.ServeHTTP(w, r)
+		} else {
+			workHandler.ServeHTTP(w, r)
+		}
+	})
+	mux.Handle("/api/v1/works", workHandler) // exact match: works list
 
 	port := os.Getenv("PORT")
 	if port == "" {

@@ -87,7 +87,7 @@ func (n *WebhookNotifier) Notify(reading domain.EnvironmentReading, threshold do
 	if err != nil {
 		return fmt.Errorf("failed to send alert webhook: %w", err)
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
 		return fmt.Errorf("alert webhook returned status %d", resp.StatusCode)

@@ -19,4 +19,5 @@ type StepRepository interface {
 // WorkRepository defines the interface for work persistence.
 type WorkRepository interface {
 	FindByID(id uuid.UUID) (*domain.Work, error)
+	FindAll() ([]domain.Work, error)
 }
