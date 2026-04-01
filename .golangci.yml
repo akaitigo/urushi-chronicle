@@ -14,7 +14,3 @@ linters:
 formatters:
   enable:
     - gofumpt
-
-issues:
-  exclude-dirs:
-    - vendor

@@ -45,6 +45,44 @@ func (r *MemoryWorkRepository) FindAll() ([]domain.Work, error) {
 	return result, nil
 }
 
+// Create stores a new work. Returns ErrConflict if the ID already exists.
+func (r *MemoryWorkRepository) Create(work *domain.Work) error {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+
+	if _, exists := r.works[work.ID]; exists {
+		return ErrConflict
+	}
+	copied := *work
+	r.works[work.ID] = &copied
+	return nil
+}
+
+// Update replaces an existing work. Returns ErrNotFound if not present.
+func (r *MemoryWorkRepository) Update(work *domain.Work) error {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+
+	if _, exists := r.works[work.ID]; !exists {
+		return ErrNotFound
+	}
+	copied := *work
+	r.works[work.ID] = &copied
+	return nil
+}
+
+// Delete removes a work by ID. Returns ErrNotFound if not present.
+func (r *MemoryWorkRepository) Delete(id uuid.UUID) error {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+
+	if _, exists := r.works[id]; !exists {
+		return ErrNotFound
+	}
+	delete(r.works, id)
+	return nil
+}
+
 // Seed adds a work to the repository (for testing/bootstrapping).
 func (r *MemoryWorkRepository) Seed(work *domain.Work) {
 	r.mu.Lock()

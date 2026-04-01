@@ -20,4 +20,7 @@ type StepRepository interface {
 type WorkRepository interface {
 	FindByID(id uuid.UUID) (*domain.Work, error)
 	FindAll() ([]domain.Work, error)
+	Create(work *domain.Work) error
+	Update(work *domain.Work) error
+	Delete(id uuid.UUID) error
 }
