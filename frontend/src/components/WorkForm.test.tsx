@@ -82,9 +82,7 @@ describe("WorkForm", () => {
   });
 
   it("displays error message", () => {
-    render(
-      <WorkForm {...defaultProps} error="タイトルは必須です" />,
-    );
+    render(<WorkForm {...defaultProps} error="タイトルは必須です" />);
     expect(screen.getByTestId("form-error")).toBeDefined();
     expect(screen.getByText("タイトルは必須です")).toBeDefined();
   });

@@ -32,9 +32,7 @@ describe("api", () => {
   describe("fetchWorks", () => {
     it("fetches works from /api/v1/works", async () => {
       const works = [{ id: "1", title: "test" }];
-      mockFetch.mockResolvedValueOnce(
-        mockResponse({ items: works, total: 1 }),
-      );
+      mockFetch.mockResolvedValueOnce(mockResponse({ items: works, total: 1 }));
 
       const result = await fetchWorks();
       expect(mockFetch).toHaveBeenCalledWith("/api/v1/works", undefined);
@@ -54,10 +52,7 @@ describe("api", () => {
       mockFetch.mockResolvedValueOnce(mockResponse(work));
 
       const result = await fetchWork("abc");
-      expect(mockFetch).toHaveBeenCalledWith(
-        "/api/v1/works/abc",
-        undefined,
-      );
+      expect(mockFetch).toHaveBeenCalledWith("/api/v1/works/abc", undefined);
       expect(result).toEqual(work);
     });
   });
@@ -138,9 +133,7 @@ describe("api", () => {
   describe("fetchProcessSteps", () => {
     it("fetches steps for a work", async () => {
       const steps = [{ id: "s1", name: "step" }];
-      mockFetch.mockResolvedValueOnce(
-        mockResponse({ items: steps, total: 1 }),
-      );
+      mockFetch.mockResolvedValueOnce(mockResponse({ items: steps, total: 1 }));
 
       const result = await fetchProcessSteps("work-1");
       expect(mockFetch).toHaveBeenCalledWith(
@@ -153,9 +146,7 @@ describe("api", () => {
 
   describe("fetchEnvironmentReadings", () => {
     it("fetches readings by sensor ID", async () => {
-      const readings = [
-        { time: "2026-01-01T00:00:00Z", temperature: 22 },
-      ];
+      const readings = [{ time: "2026-01-01T00:00:00Z", temperature: 22 }];
       mockFetch.mockResolvedValueOnce(
         mockResponse({ items: readings, total: 1 }),
       );
@@ -169,9 +160,7 @@ describe("api", () => {
     });
 
     it("respects custom limit", async () => {
-      mockFetch.mockResolvedValueOnce(
-        mockResponse({ items: [], total: 0 }),
-      );
+      mockFetch.mockResolvedValueOnce(mockResponse({ items: [], total: 0 }));
 
       await fetchEnvironmentReadings("sensor-1", 50);
       expect(mockFetch).toHaveBeenCalledWith(

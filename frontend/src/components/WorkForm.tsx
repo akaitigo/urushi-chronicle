@@ -16,12 +16,7 @@ interface WorkFormProps {
   error: string | null;
 }
 
-const techniques: Technique[] = [
-  "makie",
-  "raden",
-  "makie_raden",
-  "other",
-];
+const techniques: Technique[] = ["makie", "raden", "makie_raden", "other"];
 
 export function WorkForm({
   onSubmit,
@@ -40,11 +35,7 @@ export function WorkForm({
   };
 
   return (
-    <form
-      className="work-form"
-      data-testid="work-form"
-      onSubmit={handleSubmit}
-    >
+    <form className="work-form" data-testid="work-form" onSubmit={handleSubmit}>
       <h2 className="form-title">作品を登録</h2>
 
       {error && (

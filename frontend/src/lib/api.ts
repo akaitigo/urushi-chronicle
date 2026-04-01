@@ -50,10 +50,7 @@ export async function createWork(
 export async function updateWork(
   id: string,
   fields: Partial<
-    Pick<
-      Work,
-      "title" | "description" | "technique" | "material" | "status"
-    >
+    Pick<Work, "title" | "description" | "technique" | "material" | "status">
   >,
 ): Promise<Work> {
   return mutateJSON<Work>(`${API_BASE}/works/${id}`, "PUT", fields);
