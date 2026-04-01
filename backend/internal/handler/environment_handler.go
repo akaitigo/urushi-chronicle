@@ -273,49 +273,48 @@ func (h *EnvironmentHandler) getThreshold(w http.ResponseWriter, id uuid.UUID) {
 func (h *EnvironmentHandler) updateThreshold(w http.ResponseWriter, r *http.Request, id uuid.UUID) {
 	r.Body = http.MaxBytesReader(w, r.Body, 1<<20)
 
-	existing, err := h.thresholdRepo.FindByID(id)
-	if err != nil {
-		if errors.Is(err, repository.ErrNotFound) {
-			writeError(w, http.StatusNotFound, "threshold not found")
-			return
-		}
-		writeError(w, http.StatusInternalServerError, "failed to get threshold")
-		return
-	}
-
 	var req createThresholdRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		writeError(w, http.StatusBadRequest, "invalid JSON body")
 		return
 	}
 
-	if req.SensorID != "" {
-		existing.SensorID = req.SensorID
-	}
-	if req.TemperatureMin != 0 || req.TemperatureMax != 0 {
-		existing.TemperatureMin = req.TemperatureMin
-		existing.TemperatureMax = req.TemperatureMax
-	}
-	if req.HumidityMin != 0 || req.HumidityMax != 0 {
-		existing.HumidityMin = req.HumidityMin
-		existing.HumidityMax = req.HumidityMax
-	}
-	if req.Enabled != nil {
-		existing.Enabled = *req.Enabled
-	}
-	existing.UpdatedAt = time.Now().UTC()
+	// Use FindAndUpdate to atomically read-modify-write under a single lock,
+	// preventing race conditions on concurrent updates.
+	updated, err := h.thresholdRepo.FindAndUpdate(id, func(existing *domain.AlertThreshold) (*domain.AlertThreshold, error) {
+		if req.SensorID != "" {
+			existing.SensorID = req.SensorID
+		}
+		if req.TemperatureMin != 0 || req.TemperatureMax != 0 {
+			existing.TemperatureMin = req.TemperatureMin
+			existing.TemperatureMax = req.TemperatureMax
+		}
+		if req.HumidityMin != 0 || req.HumidityMax != 0 {
+			existing.HumidityMin = req.HumidityMin
+			existing.HumidityMax = req.HumidityMax
+		}
+		if req.Enabled != nil {
+			existing.Enabled = *req.Enabled
+		}
+		existing.UpdatedAt = time.Now().UTC()
 
-	if err := existing.Validate(); err != nil {
+		if err := existing.Validate(); err != nil {
+			return nil, err
+		}
+
+		return existing, nil
+	})
+	if err != nil {
+		if errors.Is(err, repository.ErrNotFound) {
+			writeError(w, http.StatusNotFound, "threshold not found")
+			return
+		}
+		// Validation errors from domain.Validate() are user-facing.
 		writeValidationErrors(w, []string{err.Error()})
 		return
 	}
 
-	if err := h.thresholdRepo.Update(existing); err != nil {
-		writeError(w, http.StatusInternalServerError, "failed to update threshold")
-		return
-	}
-
-	writeJSON(w, http.StatusOK, existing)
+	writeJSON(w, http.StatusOK, updated)
 }
 
 func (h *EnvironmentHandler) deleteThreshold(w http.ResponseWriter, id uuid.UUID) {

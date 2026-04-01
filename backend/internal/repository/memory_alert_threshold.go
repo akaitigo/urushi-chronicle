@@ -84,6 +84,27 @@ func (r *MemoryAlertThresholdRepository) Update(threshold *domain.AlertThreshold
 	return nil
 }
 
+// FindAndUpdate atomically retrieves and updates a threshold under a single lock.
+func (r *MemoryAlertThresholdRepository) FindAndUpdate(id uuid.UUID, updateFn func(existing *domain.AlertThreshold) (*domain.AlertThreshold, error)) (*domain.AlertThreshold, error) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+
+	threshold, ok := r.thresholds[id]
+	if !ok {
+		return nil, ErrNotFound
+	}
+
+	copied := *threshold
+	updated, err := updateFn(&copied)
+	if err != nil {
+		return nil, err
+	}
+
+	result := *updated
+	r.thresholds[id] = &result
+	return &result, nil
+}
+
 // Delete removes an alert threshold by its ID.
 func (r *MemoryAlertThresholdRepository) Delete(id uuid.UUID) error {
 	r.mu.Lock()

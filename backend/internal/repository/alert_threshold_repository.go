@@ -17,6 +17,9 @@ type AlertThresholdRepository interface {
 	FindAllEnabled() ([]domain.AlertThreshold, error)
 	// Update replaces an existing alert threshold.
 	Update(threshold *domain.AlertThreshold) error
+	// FindAndUpdate atomically retrieves and updates a threshold under a single lock.
+	// The updateFn receives the current threshold and returns the updated version.
+	FindAndUpdate(id uuid.UUID, updateFn func(existing *domain.AlertThreshold) (*domain.AlertThreshold, error)) (*domain.AlertThreshold, error)
 	// Delete removes an alert threshold by its ID.
 	Delete(id uuid.UUID) error
 }
