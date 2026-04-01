@@ -14,6 +14,7 @@ import (
 	"github.com/akaitigo/urushi-chronicle/internal/mqtt"
 	"github.com/akaitigo/urushi-chronicle/internal/repository"
 	"github.com/akaitigo/urushi-chronicle/internal/storage"
+	"github.com/akaitigo/urushi-chronicle/pkg/middleware"
 	"github.com/google/uuid"
 )
 
@@ -93,13 +94,18 @@ func main() {
 	})
 	mux.Handle("/api/v1/works", workHandler) // exact match: works list
 
+	// Wrap with CORS middleware (configured via CORS_ORIGINS env var)
+	corsOrigins := os.Getenv("CORS_ORIGINS")
+	var rootHandler http.Handler = mux
+	rootHandler = middleware.CORS(rootHandler, corsOrigins)
+
 	port := os.Getenv("PORT")
 	if port == "" {
 		port = "8080"
 	}
 
 	logger.Printf("API server starting on :%s", port)
-	if err := http.ListenAndServe(":"+port, mux); err != nil {
+	if err := http.ListenAndServe(":"+port, rootHandler); err != nil {
 		logger.Fatalf("server failed: %v", err)
 	}
 }
