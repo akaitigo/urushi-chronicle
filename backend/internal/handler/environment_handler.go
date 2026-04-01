@@ -123,6 +123,8 @@ func (h *EnvironmentHandler) handleThresholdByID(w http.ResponseWriter, r *http.
 }
 
 func (h *EnvironmentHandler) ingestReading(w http.ResponseWriter, r *http.Request) {
+	r.Body = http.MaxBytesReader(w, r.Body, 1<<20)
+
 	var req ingestReadingRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		writeError(w, http.StatusBadRequest, "invalid JSON body")
@@ -203,6 +205,8 @@ func (h *EnvironmentHandler) queryReadings(w http.ResponseWriter, r *http.Reques
 }
 
 func (h *EnvironmentHandler) createThreshold(w http.ResponseWriter, r *http.Request) {
+	r.Body = http.MaxBytesReader(w, r.Body, 1<<20)
+
 	var req createThresholdRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		writeError(w, http.StatusBadRequest, "invalid JSON body")
@@ -267,6 +271,8 @@ func (h *EnvironmentHandler) getThreshold(w http.ResponseWriter, id uuid.UUID) {
 }
 
 func (h *EnvironmentHandler) updateThreshold(w http.ResponseWriter, r *http.Request, id uuid.UUID) {
+	r.Body = http.MaxBytesReader(w, r.Body, 1<<20)
+
 	existing, err := h.thresholdRepo.FindByID(id)
 	if err != nil {
 		if errors.Is(err, repository.ErrNotFound) {

@@ -164,6 +164,8 @@ func (h *StepHandler) parsePath(path string) (workID, stepID uuid.UUID, trailing
 }
 
 func (h *StepHandler) createStep(w http.ResponseWriter, r *http.Request, workID uuid.UUID) {
+	r.Body = http.MaxBytesReader(w, r.Body, 1<<20)
+
 	var req createStepRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		writeError(w, http.StatusBadRequest, "invalid JSON body")
@@ -230,6 +232,8 @@ func (h *StepHandler) getStep(w http.ResponseWriter, workID, stepID uuid.UUID) {
 }
 
 func (h *StepHandler) updateStep(w http.ResponseWriter, r *http.Request, workID, stepID uuid.UUID) {
+	r.Body = http.MaxBytesReader(w, r.Body, 1<<20)
+
 	existing, err := h.stepRepo.FindByID(workID, stepID)
 	if err != nil {
 		if errors.Is(err, repository.ErrNotFound) {
@@ -302,6 +306,8 @@ func (h *StepHandler) deleteStep(w http.ResponseWriter, workID, stepID uuid.UUID
 }
 
 func (h *StepHandler) requestUploadURL(w http.ResponseWriter, r *http.Request, workID, stepID uuid.UUID) {
+	r.Body = http.MaxBytesReader(w, r.Body, 1<<20)
+
 	// Verify step exists
 	if _, err := h.stepRepo.FindByID(workID, stepID); err != nil {
 		if errors.Is(err, repository.ErrNotFound) {

@@ -120,6 +120,8 @@ func (h *WorkHandler) getWork(w http.ResponseWriter, id uuid.UUID) {
 }
 
 func (h *WorkHandler) createWork(w http.ResponseWriter, r *http.Request) {
+	r.Body = http.MaxBytesReader(w, r.Body, 1<<20)
+
 	var req createWorkRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		writeError(w, http.StatusBadRequest, "invalid JSON body")
@@ -153,6 +155,8 @@ func (h *WorkHandler) createWork(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *WorkHandler) updateWork(w http.ResponseWriter, r *http.Request, id uuid.UUID) {
+	r.Body = http.MaxBytesReader(w, r.Body, 1<<20)
+
 	existing, err := h.workRepo.FindByID(id)
 	if err != nil {
 		if errors.Is(err, repository.ErrNotFound) {
