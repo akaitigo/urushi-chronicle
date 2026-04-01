@@ -2,8 +2,6 @@ version: "2"
 
 run:
   go: "1.24"
-  exclude-dirs:
-    - vendor
 
 linters:
   enable:
