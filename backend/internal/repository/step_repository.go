@@ -14,6 +14,7 @@ type StepRepository interface {
 	FindByWorkID(workID uuid.UUID) ([]domain.ProcessStep, error)
 	Update(step *domain.ProcessStep) error
 	Delete(workID, stepID uuid.UUID) error
+	DeleteByWorkID(workID uuid.UUID) error
 }
 
 // WorkRepository defines the interface for work persistence.

@@ -11,7 +11,6 @@ import (
 	"github.com/akaitigo/urushi-chronicle/internal/domain"
 	"github.com/akaitigo/urushi-chronicle/internal/handler"
 	"github.com/akaitigo/urushi-chronicle/internal/monitor"
-	"github.com/akaitigo/urushi-chronicle/internal/mqtt"
 	"github.com/akaitigo/urushi-chronicle/internal/repository"
 	"github.com/akaitigo/urushi-chronicle/internal/storage"
 	"github.com/akaitigo/urushi-chronicle/pkg/middleware"
@@ -64,18 +63,11 @@ func main() {
 	}
 	workRepo.Seed(demoWork)
 
-	// Initialize MQTT subscriber (topic from env or default)
-	mqttTopic := os.Getenv("MQTT_TOPIC")
-	if mqttTopic == "" {
-		mqttTopic = "urushi/sensors/+"
-	}
-	_ = mqtt.NewSubscriber(mqttTopic, monitorSvc.ProcessReading)
-
 	// Initialize HTTP handlers
 	envHandler := handler.NewEnvironmentHandler(envRepo, thresholdRepo, monitorSvc)
 	bucketName := os.Getenv("GCS_BUCKET")
 	uploader := storage.NewGCSUploader(bucketName)
-	workHandler := handler.NewWorkHandler(workRepo)
+	workHandler := handler.NewWorkHandler(workRepo, stepRepo)
 	stepHandler := handler.NewStepHandler(stepRepo, workRepo, uploader)
 
 	// Register routes
@@ -104,8 +96,16 @@ func main() {
 		port = "8080"
 	}
 
+	srv := &http.Server{
+		Addr:         ":" + port,
+		Handler:      rootHandler,
+		ReadTimeout:  15 * time.Second,
+		WriteTimeout: 30 * time.Second,
+		IdleTimeout:  120 * time.Second,
+	}
+
 	logger.Printf("API server starting on :%s", port)
-	if err := http.ListenAndServe(":"+port, rootHandler); err != nil {
+	if err := srv.ListenAndServe(); err != nil {
 		logger.Fatalf("server failed: %v", err)
 	}
 }

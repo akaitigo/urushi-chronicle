@@ -121,3 +121,13 @@ func (r *MemoryStepRepository) Delete(workID, stepID uuid.UUID) error {
 	delete(workSteps, stepID)
 	return nil
 }
+
+// DeleteByWorkID removes all process steps associated with a given work.
+// Returns nil if the work has no steps (idempotent).
+func (r *MemoryStepRepository) DeleteByWorkID(workID uuid.UUID) error {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+
+	delete(r.steps, workID)
+	return nil
+}

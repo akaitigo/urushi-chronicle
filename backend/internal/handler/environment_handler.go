@@ -53,6 +53,17 @@ type createThresholdRequest struct {
 	Enabled        *bool   `json:"enabled"`
 }
 
+// updateThresholdRequest is the JSON body for PUT /api/v1/environment/thresholds/{id}.
+// Uses pointer types so that an explicit zero value can be distinguished from an omitted field.
+type updateThresholdRequest struct {
+	SensorID       string   `json:"sensor_id"`
+	TemperatureMin *float64 `json:"temperature_min"`
+	TemperatureMax *float64 `json:"temperature_max"`
+	HumidityMin    *float64 `json:"humidity_min"`
+	HumidityMax    *float64 `json:"humidity_max"`
+	Enabled        *bool    `json:"enabled"`
+}
+
 // ServeHTTP routes requests to the appropriate handler method.
 // Expected paths:
 //   - POST /api/v1/environment/readings        — ingest a reading via REST
@@ -273,7 +284,7 @@ func (h *EnvironmentHandler) getThreshold(w http.ResponseWriter, id uuid.UUID) {
 func (h *EnvironmentHandler) updateThreshold(w http.ResponseWriter, r *http.Request, id uuid.UUID) {
 	r.Body = http.MaxBytesReader(w, r.Body, 1<<20)
 
-	var req createThresholdRequest
+	var req updateThresholdRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		writeError(w, http.StatusBadRequest, "invalid JSON body")
 		return
@@ -281,17 +292,22 @@ func (h *EnvironmentHandler) updateThreshold(w http.ResponseWriter, r *http.Requ
 
 	// Use FindAndUpdate to atomically read-modify-write under a single lock,
 	// preventing race conditions on concurrent updates.
+	// Pointer fields (nil = not provided, non-nil = explicit value including zero).
 	updated, err := h.thresholdRepo.FindAndUpdate(id, func(existing *domain.AlertThreshold) (*domain.AlertThreshold, error) {
 		if req.SensorID != "" {
 			existing.SensorID = req.SensorID
 		}
-		if req.TemperatureMin != 0 || req.TemperatureMax != 0 {
-			existing.TemperatureMin = req.TemperatureMin
-			existing.TemperatureMax = req.TemperatureMax
+		if req.TemperatureMin != nil {
+			existing.TemperatureMin = *req.TemperatureMin
 		}
-		if req.HumidityMin != 0 || req.HumidityMax != 0 {
-			existing.HumidityMin = req.HumidityMin
-			existing.HumidityMax = req.HumidityMax
+		if req.TemperatureMax != nil {
+			existing.TemperatureMax = *req.TemperatureMax
+		}
+		if req.HumidityMin != nil {
+			existing.HumidityMin = *req.HumidityMin
+		}
+		if req.HumidityMax != nil {
+			existing.HumidityMax = *req.HumidityMax
 		}
 		if req.Enabled != nil {
 			existing.Enabled = *req.Enabled

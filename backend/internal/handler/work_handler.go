@@ -15,11 +15,17 @@ import (
 // WorkHandler handles HTTP requests for work (lacquerware piece) endpoints.
 type WorkHandler struct {
 	workRepo repository.WorkRepository
+	stepRepo repository.StepRepository
 }
 
-// NewWorkHandler creates a new WorkHandler with the given repository.
-func NewWorkHandler(workRepo repository.WorkRepository) *WorkHandler {
-	return &WorkHandler{workRepo: workRepo}
+// NewWorkHandler creates a new WorkHandler with the given repositories.
+// stepRepo is used to cascade-delete related steps when a work is deleted.
+func NewWorkHandler(workRepo repository.WorkRepository, stepRepo ...repository.StepRepository) *WorkHandler {
+	h := &WorkHandler{workRepo: workRepo}
+	if len(stepRepo) > 0 {
+		h.stepRepo = stepRepo[0]
+	}
+	return h
 }
 
 // createWorkRequest is the JSON body for POST /api/v1/works.
@@ -221,6 +227,11 @@ func (h *WorkHandler) deleteWork(w http.ResponseWriter, id uuid.UUID) {
 		}
 		writeError(w, http.StatusInternalServerError, "failed to delete work")
 		return
+	}
+
+	// Cascade: delete all associated process steps.
+	if h.stepRepo != nil {
+		_ = h.stepRepo.DeleteByWorkID(id)
 	}
 
 	w.WriteHeader(http.StatusNoContent)
