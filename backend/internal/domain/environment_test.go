@@ -106,6 +106,37 @@ func TestEnvironmentReadingValidate_BoundaryValues(t *testing.T) {
 	}
 }
 
+func TestEnvironmentReadingValidate_SensorIDTooLong(t *testing.T) {
+	er := validEnvironmentReading()
+	er.SensorID = string(make([]byte, 257))
+	if err := er.Validate(); err == nil {
+		t.Error("expected error for sensor_id exceeding 256 characters")
+	}
+}
+
+func TestEnvironmentReadingValidate_LocationTooLong(t *testing.T) {
+	er := validEnvironmentReading()
+	er.Location = string(make([]byte, 257))
+	if err := er.Validate(); err == nil {
+		t.Error("expected error for location exceeding 256 characters")
+	}
+}
+
+func TestEnvironmentReadingValidate_ControlCharsStripped(t *testing.T) {
+	er := validEnvironmentReading()
+	er.SensorID = "esp32\x00-001\n"
+	er.Location = "\turushi\x07_buro"
+	if err := er.Validate(); err != nil {
+		t.Errorf("expected valid after stripping control chars, got %v", err)
+	}
+	if er.SensorID != "esp32-001" {
+		t.Errorf("expected sanitized sensor_id 'esp32-001', got %q", er.SensorID)
+	}
+	if er.Location != "urushi_buro" {
+		t.Errorf("expected sanitized location 'urushi_buro', got %q", er.Location)
+	}
+}
+
 func TestAlertThresholdValidate_Valid(t *testing.T) {
 	at := domain.AlertThreshold{
 		ID:             uuid.New(),

@@ -2,7 +2,9 @@ package domain
 
 import (
 	"errors"
+	"strings"
 	"time"
+	"unicode"
 
 	"github.com/google/uuid"
 )
@@ -16,6 +18,8 @@ const (
 	HumidityMin = 0.0
 	// HumidityMax is the maximum valid humidity percentage.
 	HumidityMax = 100.0
+	// MaxStringFieldLength is the maximum allowed length for string fields like sensor_id and location.
+	MaxStringFieldLength = 256
 )
 
 // EnvironmentReading represents a single sensor measurement from the urushi-buro.
@@ -29,13 +33,35 @@ type EnvironmentReading struct {
 	ProcessStepID *uuid.UUID `json:"process_step_id,omitempty"`
 }
 
+// sanitizeStringField strips control characters and trims whitespace.
+func sanitizeStringField(s string) string {
+	var b strings.Builder
+	b.Grow(len(s))
+	for _, r := range s {
+		if !unicode.IsControl(r) {
+			b.WriteRune(r)
+		}
+	}
+	return strings.TrimSpace(b.String())
+}
+
 // Validate checks the environment reading's fields for correctness.
+// It also sanitizes string fields by removing control characters and trimming whitespace.
 func (er *EnvironmentReading) Validate() error {
+	er.SensorID = sanitizeStringField(er.SensorID)
+	er.Location = sanitizeStringField(er.Location)
+
 	if er.SensorID == "" {
 		return errors.New("sensor_id must not be empty")
 	}
+	if len(er.SensorID) > MaxStringFieldLength {
+		return errors.New("sensor_id must not exceed 256 characters")
+	}
 	if er.Location == "" {
 		return errors.New("location must not be empty")
+	}
+	if len(er.Location) > MaxStringFieldLength {
+		return errors.New("location must not exceed 256 characters")
 	}
 	if er.Temperature < TemperatureMin || er.Temperature > TemperatureMax {
 		return errors.New("temperature must be between -10.0 and 100.0")

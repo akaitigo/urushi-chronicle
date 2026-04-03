@@ -11,6 +11,8 @@
 - **Database**: PostgreSQL + TimescaleDB
 - **Infrastructure**: GCP Cloud Run
 
+> **MVP: インメモリストア使用** -- 現在のMVPでは全リポジトリがインメモリ実装（リングバッファ）です。プロセス再起動でデータは失われます。PostgreSQL + TimescaleDB への移行はMVPスコープ外です。
+
 ## セットアップ
 
 ```bash
