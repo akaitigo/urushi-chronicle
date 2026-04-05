@@ -48,7 +48,7 @@ func TestListWorks_Empty(t *testing.T) {
 		t.Fatalf("expected 200, got %d: %s", rr.Code, rr.Body.String())
 	}
 
-	var resp map[string]interface{}
+	var resp map[string]any
 	if err := json.Unmarshal(rr.Body.Bytes(), &resp); err != nil {
 		t.Fatalf("failed to parse response: %v", err)
 	}
@@ -70,12 +70,12 @@ func TestListWorks_WithData(t *testing.T) {
 		t.Fatalf("expected 200, got %d", rr.Code)
 	}
 
-	var resp map[string]interface{}
+	var resp map[string]any
 	_ = json.Unmarshal(rr.Body.Bytes(), &resp)
 	if resp["total"].(float64) != 2 {
 		t.Errorf("expected total 2, got %v", resp["total"])
 	}
-	items := resp["items"].([]interface{})
+	items := resp["items"].([]any)
 	if len(items) != 2 {
 		t.Errorf("expected 2 items, got %d", len(items))
 	}
@@ -93,7 +93,7 @@ func TestGetWork_Success(t *testing.T) {
 		t.Fatalf("expected 200, got %d: %s", rr.Code, rr.Body.String())
 	}
 
-	var resp map[string]interface{}
+	var resp map[string]any
 	_ = json.Unmarshal(rr.Body.Bytes(), &resp)
 	if resp["title"] != "蒔絵香合" {
 		t.Errorf("expected title '蒔絵香合', got %v", resp["title"])
@@ -136,7 +136,7 @@ func TestListWorks_TrailingSlash(t *testing.T) {
 		t.Fatalf("expected 200, got %d: %s", rr.Code, rr.Body.String())
 	}
 
-	var resp map[string]interface{}
+	var resp map[string]any
 	_ = json.Unmarshal(rr.Body.Bytes(), &resp)
 	if resp["total"].(float64) != 1 {
 		t.Errorf("expected total 1, got %v", resp["total"])
@@ -158,7 +158,7 @@ func TestCreateWork_Success(t *testing.T) {
 		t.Fatalf("expected 201, got %d: %s", rr.Code, rr.Body.String())
 	}
 
-	var resp map[string]interface{}
+	var resp map[string]any
 	_ = json.Unmarshal(rr.Body.Bytes(), &resp)
 	if resp["title"] != "新規蒔絵作品" {
 		t.Errorf("expected title '新規蒔絵作品', got %v", resp["title"])
@@ -228,7 +228,7 @@ func TestUpdateWork_Success(t *testing.T) {
 		t.Fatalf("expected 200, got %d: %s", rr.Code, rr.Body.String())
 	}
 
-	var resp map[string]interface{}
+	var resp map[string]any
 	_ = json.Unmarshal(rr.Body.Bytes(), &resp)
 	if resp["title"] != "新タイトル" {
 		t.Errorf("expected '新タイトル', got %v", resp["title"])
@@ -267,7 +267,7 @@ func TestUpdateWork_PartialUpdate(t *testing.T) {
 		t.Fatalf("expected 200, got %d: %s", rr.Code, rr.Body.String())
 	}
 
-	var resp map[string]interface{}
+	var resp map[string]any
 	_ = json.Unmarshal(rr.Body.Bytes(), &resp)
 	if resp["title"] != "元のタイトル" {
 		t.Errorf("title should remain unchanged, got %v", resp["title"])

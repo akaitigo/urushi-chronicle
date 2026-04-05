@@ -3,6 +3,7 @@ package handler
 
 import (
 	"encoding/json"
+	"log"
 	"net/http"
 )
 
@@ -13,11 +14,13 @@ type ErrorResponse struct {
 }
 
 // writeJSON writes a JSON response with the given status code.
-func writeJSON(w http.ResponseWriter, status int, v interface{}) {
+func writeJSON(w http.ResponseWriter, status int, v any) {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(status)
 	if v != nil {
-		_ = json.NewEncoder(w).Encode(v)
+		if err := json.NewEncoder(w).Encode(v); err != nil {
+			log.Printf("error: failed to encode JSON response: %v", err)
+		}
 	}
 }
 

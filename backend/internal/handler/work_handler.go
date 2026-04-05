@@ -105,7 +105,7 @@ func (h *WorkHandler) listWorks(w http.ResponseWriter) {
 		return
 	}
 
-	writeJSON(w, http.StatusOK, map[string]interface{}{
+	writeJSON(w, http.StatusOK, map[string]any{
 		"items": works,
 		"total": len(works),
 	})
@@ -231,7 +231,10 @@ func (h *WorkHandler) deleteWork(w http.ResponseWriter, id uuid.UUID) {
 
 	// Cascade: delete all associated process steps.
 	if h.stepRepo != nil {
-		_ = h.stepRepo.DeleteByWorkID(id)
+		if err := h.stepRepo.DeleteByWorkID(id); err != nil {
+			writeError(w, http.StatusInternalServerError, "failed to delete associated steps")
+			return
+		}
 	}
 
 	w.WriteHeader(http.StatusNoContent)
