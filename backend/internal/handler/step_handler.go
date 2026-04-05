@@ -211,7 +211,7 @@ func (h *StepHandler) listSteps(w http.ResponseWriter, workID uuid.UUID) {
 		return
 	}
 
-	writeJSON(w, http.StatusOK, map[string]interface{}{
+	writeJSON(w, http.StatusOK, map[string]any{
 		"items": steps,
 		"total": len(steps),
 	})

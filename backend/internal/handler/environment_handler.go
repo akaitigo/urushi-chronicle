@@ -209,7 +209,7 @@ func (h *EnvironmentHandler) queryReadings(w http.ResponseWriter, r *http.Reques
 		return
 	}
 
-	writeJSON(w, http.StatusOK, map[string]interface{}{
+	writeJSON(w, http.StatusOK, map[string]any{
 		"items": readings,
 		"total": len(readings),
 	})
@@ -262,7 +262,7 @@ func (h *EnvironmentHandler) listThresholds(w http.ResponseWriter) {
 		return
 	}
 
-	writeJSON(w, http.StatusOK, map[string]interface{}{
+	writeJSON(w, http.StatusOK, map[string]any{
 		"items": thresholds,
 		"total": len(thresholds),
 	})

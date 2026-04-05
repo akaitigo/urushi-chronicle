@@ -49,7 +49,7 @@ func TestCreateStep_Success(t *testing.T) {
 		t.Fatalf("expected 201, got %d: %s", rr.Code, rr.Body.String())
 	}
 
-	var resp map[string]interface{}
+	var resp map[string]any
 	if err := json.Unmarshal(rr.Body.Bytes(), &resp); err != nil {
 		t.Fatalf("failed to parse response: %v", err)
 	}
@@ -97,7 +97,7 @@ func TestListSteps_Empty(t *testing.T) {
 		t.Fatalf("expected 200, got %d", rr.Code)
 	}
 
-	var resp map[string]interface{}
+	var resp map[string]any
 	_ = json.Unmarshal(rr.Body.Bytes(), &resp)
 	if resp["total"].(float64) != 0 {
 		t.Errorf("expected total 0, got %v", resp["total"])
@@ -106,7 +106,7 @@ func TestListSteps_Empty(t *testing.T) {
 
 func createTestStep(t *testing.T, h *handler.StepHandler, workID uuid.UUID, name string, order int) string {
 	t.Helper()
-	body, _ := json.Marshal(map[string]interface{}{
+	body, _ := json.Marshal(map[string]any{
 		"name":       name,
 		"step_order": order,
 		"category":   "shitanuri",
@@ -117,7 +117,7 @@ func createTestStep(t *testing.T, h *handler.StepHandler, workID uuid.UUID, name
 	if rr.Code != http.StatusCreated {
 		t.Fatalf("failed to create step: %d %s", rr.Code, rr.Body.String())
 	}
-	var resp map[string]interface{}
+	var resp map[string]any
 	_ = json.Unmarshal(rr.Body.Bytes(), &resp)
 	return resp["id"].(string)
 }
@@ -160,7 +160,7 @@ func TestUpdateStep_Success(t *testing.T) {
 		t.Fatalf("expected 200, got %d: %s", rr.Code, rr.Body.String())
 	}
 
-	var resp map[string]interface{}
+	var resp map[string]any
 	_ = json.Unmarshal(rr.Body.Bytes(), &resp)
 	if resp["name"] != "下塗り（修正版）" {
 		t.Errorf("expected updated name, got %v", resp["name"])
@@ -227,7 +227,7 @@ func TestUploadURL_Success(t *testing.T) {
 		t.Fatalf("expected 200, got %d: %s", rr.Code, rr.Body.String())
 	}
 
-	var resp map[string]interface{}
+	var resp map[string]any
 	_ = json.Unmarshal(rr.Body.Bytes(), &resp)
 	if resp["upload_url"] == nil {
 		t.Error("expected upload_url in response")
@@ -277,12 +277,12 @@ func TestListSteps_AfterCreation(t *testing.T) {
 		t.Fatalf("expected 200, got %d", rr.Code)
 	}
 
-	var resp map[string]interface{}
+	var resp map[string]any
 	_ = json.Unmarshal(rr.Body.Bytes(), &resp)
 	if resp["total"].(float64) != 2 {
 		t.Errorf("expected total 2, got %v", resp["total"])
 	}
-	items := resp["items"].([]interface{})
+	items := resp["items"].([]any)
 	if len(items) != 2 {
 		t.Errorf("expected 2 items, got %d", len(items))
 	}

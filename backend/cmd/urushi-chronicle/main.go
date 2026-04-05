@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"log"
 	"net/http"
 	"os"
@@ -8,6 +9,7 @@ import (
 	"time"
 
 	"github.com/akaitigo/urushi-chronicle/internal/alert"
+	"github.com/akaitigo/urushi-chronicle/internal/database"
 	"github.com/akaitigo/urushi-chronicle/internal/domain"
 	"github.com/akaitigo/urushi-chronicle/internal/handler"
 	"github.com/akaitigo/urushi-chronicle/internal/monitor"
@@ -20,11 +22,72 @@ import (
 func main() {
 	logger := log.New(os.Stdout, "[urushi-chronicle] ", log.LstdFlags)
 
-	// Initialize repositories
-	envRepo := repository.NewMemoryEnvironmentRepository()
-	thresholdRepo := repository.NewMemoryAlertThresholdRepository()
-	workRepo := repository.NewMemoryWorkRepository()
-	stepRepo := repository.NewMemoryStepRepository()
+	// Initialize repositories based on DATABASE_URL presence.
+	// If DATABASE_URL is set, use PostgreSQL; otherwise fall back to in-memory stores.
+	var envRepo repository.EnvironmentRepository
+	var thresholdRepo repository.AlertThresholdRepository
+	var workRepo repository.WorkRepository
+	var stepRepo repository.StepRepository
+
+	databaseURL := os.Getenv("DATABASE_URL")
+	if databaseURL != "" {
+		ctx, cancel := context.WithTimeout(context.Background(), database.DefaultConnectTimeout)
+		defer cancel()
+
+		pool, err := database.NewPool(ctx, databaseURL)
+		if err != nil {
+			logger.Fatalf("failed to connect to database: %v", err)
+		}
+		defer pool.Close()
+
+		envRepo = repository.NewPgEnvironmentRepository(pool)
+		thresholdRepo = repository.NewPgAlertThresholdRepository(pool)
+		workRepo = repository.NewPgWorkRepository(pool)
+		stepRepo = repository.NewPgStepRepository(pool)
+
+		logger.Println("database: connected to PostgreSQL")
+	} else {
+		logger.Println("database: using in-memory stores (set DATABASE_URL for PostgreSQL)")
+
+		memEnvRepo := repository.NewMemoryEnvironmentRepository()
+		memThresholdRepo := repository.NewMemoryAlertThresholdRepository()
+		memWorkRepo := repository.NewMemoryWorkRepository()
+		memStepRepo := repository.NewMemoryStepRepository()
+
+		// Seed demo data for in-memory mode
+		now := time.Now().UTC()
+		defaultThreshold := &domain.AlertThreshold{
+			ID:             uuid.MustParse("00000000-0000-0000-0000-000000000010"),
+			SensorID:       "esp32-001",
+			TemperatureMin: 20.0,
+			TemperatureMax: 30.0,
+			HumidityMin:    70.0,
+			HumidityMax:    85.0,
+			Enabled:        true,
+			CreatedAt:      now,
+			UpdatedAt:      now,
+		}
+		memThresholdRepo.Seed(defaultThreshold)
+
+		demoWorkID := uuid.MustParse("00000000-0000-0000-0000-000000000001")
+		demoWork := &domain.Work{
+			ID:          demoWorkID,
+			Title:       "蒔絵香合 — 秋草",
+			Description: "秋草文様の蒔絵を施した香合。研出蒔絵技法を用いた習作。",
+			Technique:   domain.TechniqueMakie,
+			Material:    "欅",
+			Status:      domain.WorkStatusInProgress,
+			StartedAt:   now,
+			CreatedAt:   now,
+			UpdatedAt:   now,
+		}
+		memWorkRepo.Seed(demoWork)
+
+		envRepo = memEnvRepo
+		thresholdRepo = memThresholdRepo
+		workRepo = memWorkRepo
+		stepRepo = memStepRepo
+	}
 
 	// Initialize alert notifier (webhook URL from env; empty = no-op)
 	webhookURL := os.Getenv("ALERT_WEBHOOK_URL")
@@ -32,36 +95,6 @@ func main() {
 
 	// Initialize monitoring service
 	monitorSvc := monitor.NewService(envRepo, thresholdRepo, notifier, logger)
-
-	// Seed a default alert threshold for the demo urushi-buro sensor
-	now := time.Now().UTC()
-	defaultThreshold := &domain.AlertThreshold{
-		ID:             uuid.MustParse("00000000-0000-0000-0000-000000000010"),
-		SensorID:       "esp32-001",
-		TemperatureMin: 20.0,
-		TemperatureMax: 30.0,
-		HumidityMin:    70.0,
-		HumidityMax:    85.0,
-		Enabled:        true,
-		CreatedAt:      now,
-		UpdatedAt:      now,
-	}
-	thresholdRepo.Seed(defaultThreshold)
-
-	// Seed a default demo work for the frontend
-	demoWorkID := uuid.MustParse("00000000-0000-0000-0000-000000000001")
-	demoWork := &domain.Work{
-		ID:          demoWorkID,
-		Title:       "蒔絵香合 — 秋草",
-		Description: "秋草文様の蒔絵を施した香合。研出蒔絵技法を用いた習作。",
-		Technique:   domain.TechniqueMakie,
-		Material:    "欅",
-		Status:      domain.WorkStatusInProgress,
-		StartedAt:   now,
-		CreatedAt:   now,
-		UpdatedAt:   now,
-	}
-	workRepo.Seed(demoWork)
 
 	// Initialize HTTP handlers
 	envHandler := handler.NewEnvironmentHandler(envRepo, thresholdRepo, monitorSvc)
