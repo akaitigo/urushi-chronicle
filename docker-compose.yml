@@ -1,0 +1,21 @@
+services:
+  db:
+    image: timescale/timescaledb:latest-pg16
+    container_name: urushi-chronicle-db
+    ports:
+      - "5432:5432"
+    environment:
+      POSTGRES_USER: urushi
+      POSTGRES_PASSWORD: urushi
+      POSTGRES_DB: urushi_chronicle
+    volumes:
+      - urushi_pgdata:/var/lib/postgresql/data
+      - ./backend/migrations/001_create_core_tables.up.sql:/docker-entrypoint-initdb.d/001_create_core_tables.sql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U urushi -d urushi_chronicle"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+volumes:
+  urushi_pgdata:

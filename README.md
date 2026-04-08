@@ -11,11 +11,14 @@
 - **Database**: PostgreSQL + TimescaleDB
 - **Infrastructure**: GCP Cloud Run
 
-> **MVP: インメモリストア使用** -- 現在のMVPでは全リポジトリがインメモリ実装（リングバッファ）です。プロセス再起動でデータは失われます。PostgreSQL + TimescaleDB への移行はMVPスコープ外です。
+> **ストア切り替え**: `STORE_TYPE` 環境変数で `postgres`（PostgreSQL+TimescaleDB）と `memory`（インメモリ）を切り替えられます。未設定の場合は `DATABASE_URL` の有無で自動判定します。
 
 ## セットアップ
 
 ```bash
+# PostgreSQL+TimescaleDB を起動
+docker compose up -d
+
 # Backend
 cd backend && go mod download && go build ./...
 

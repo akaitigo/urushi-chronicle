@@ -22,15 +22,28 @@ import (
 func main() {
 	logger := log.New(os.Stdout, "[urushi-chronicle] ", log.LstdFlags)
 
-	// Initialize repositories based on DATABASE_URL presence.
-	// If DATABASE_URL is set, use PostgreSQL; otherwise fall back to in-memory stores.
+	// Initialize repositories based on STORE_TYPE environment variable.
+	// STORE_TYPE=postgres  → use PostgreSQL (requires DATABASE_URL)
+	// STORE_TYPE=memory    → use in-memory stores (default)
+	//
+	// For backward compatibility, if STORE_TYPE is not set but DATABASE_URL is present,
+	// PostgreSQL is used automatically.
 	var envRepo repository.EnvironmentRepository
 	var thresholdRepo repository.AlertThresholdRepository
 	var workRepo repository.WorkRepository
 	var stepRepo repository.StepRepository
 
+	storeType := os.Getenv("STORE_TYPE")
 	databaseURL := os.Getenv("DATABASE_URL")
-	if databaseURL != "" {
+
+	// Determine effective store type
+	usePostgres := storeType == "postgres" || (storeType == "" && databaseURL != "")
+
+	if usePostgres {
+		if databaseURL == "" {
+			logger.Fatal("STORE_TYPE=postgres requires DATABASE_URL to be set")
+		}
+
 		ctx, cancel := context.WithTimeout(context.Background(), database.DefaultConnectTimeout)
 		defer cancel()
 
@@ -45,9 +58,9 @@ func main() {
 		workRepo = repository.NewPgWorkRepository(pool)
 		stepRepo = repository.NewPgStepRepository(pool)
 
-		logger.Println("database: connected to PostgreSQL")
+		logger.Println("database: connected to PostgreSQL (STORE_TYPE=postgres)")
 	} else {
-		logger.Println("database: using in-memory stores (set DATABASE_URL for PostgreSQL)")
+		logger.Println("database: using in-memory stores (STORE_TYPE=memory)")
 
 		memEnvRepo := repository.NewMemoryEnvironmentRepository()
 		memThresholdRepo := repository.NewMemoryAlertThresholdRepository()
