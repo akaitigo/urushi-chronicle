@@ -220,6 +220,28 @@ func (h *WorkHandler) updateWork(w http.ResponseWriter, r *http.Request, id uuid
 }
 
 func (h *WorkHandler) deleteWork(w http.ResponseWriter, id uuid.UUID) {
+	// Verify work exists before attempting deletion.
+	if _, err := h.workRepo.FindByID(id); err != nil {
+		if errors.Is(err, repository.ErrNotFound) {
+			writeError(w, http.StatusNotFound, "work not found")
+			return
+		}
+		writeError(w, http.StatusInternalServerError, "failed to get work")
+		return
+	}
+
+	// Cascade: delete all associated process steps BEFORE the work itself.
+	// This prevents orphaned steps if the work deletion succeeds but step
+	// deletion would fail, and ensures correct ordering in in-memory mode
+	// (PostgreSQL handles this via ON DELETE CASCADE, but application-level
+	// ordering must also be correct for the in-memory store).
+	if h.stepRepo != nil {
+		if err := h.stepRepo.DeleteByWorkID(id); err != nil {
+			writeError(w, http.StatusInternalServerError, "failed to delete associated steps")
+			return
+		}
+	}
+
 	if err := h.workRepo.Delete(id); err != nil {
 		if errors.Is(err, repository.ErrNotFound) {
 			writeError(w, http.StatusNotFound, "work not found")
@@ -227,14 +249,6 @@ func (h *WorkHandler) deleteWork(w http.ResponseWriter, id uuid.UUID) {
 		}
 		writeError(w, http.StatusInternalServerError, "failed to delete work")
 		return
-	}
-
-	// Cascade: delete all associated process steps.
-	if h.stepRepo != nil {
-		if err := h.stepRepo.DeleteByWorkID(id); err != nil {
-			writeError(w, http.StatusInternalServerError, "failed to delete associated steps")
-			return
-		}
 	}
 
 	w.WriteHeader(http.StatusNoContent)
