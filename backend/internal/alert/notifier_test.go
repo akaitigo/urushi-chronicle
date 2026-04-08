@@ -22,6 +22,21 @@ func (m *mockHTTPClient) Do(req *http.Request) (*http.Response, error) {
 	return m.doFunc(req)
 }
 
+// mockResolver is a test double for alert.DNSResolver.
+type mockResolver struct {
+	ips []string
+	err error
+}
+
+func (m *mockResolver) LookupHost(_ string) ([]string, error) {
+	return m.ips, m.err
+}
+
+// publicResolver returns a public IP for any hostname.
+func publicResolver() *mockResolver {
+	return &mockResolver{ips: []string{"93.184.215.14"}}
+}
+
 func testReading() domain.EnvironmentReading {
 	return domain.EnvironmentReading{
 		Time:        time.Date(2026, 3, 29, 12, 0, 0, 0, time.UTC),
@@ -60,8 +75,11 @@ func TestWebhookNotifier_Notify_Success(t *testing.T) {
 		},
 	}
 
-	notifier := alert.NewWebhookNotifier("https://hooks.example.com/alert", client)
-	err := notifier.Notify(testReading(), testThreshold())
+	notifier, err := alert.NewWebhookNotifierWithResolver("https://hooks.example.com/alert", client, publicResolver())
+	if err != nil {
+		t.Fatalf("NewWebhookNotifierWithResolver: %v", err)
+	}
+	err = notifier.Notify(testReading(), testThreshold())
 	if err != nil {
 		t.Fatalf("expected no error, got %v", err)
 	}
@@ -93,8 +111,11 @@ func TestWebhookNotifier_Notify_Success(t *testing.T) {
 }
 
 func TestWebhookNotifier_Notify_EmptyURL_NoOp(t *testing.T) {
-	notifier := alert.NewWebhookNotifier("", nil)
-	err := notifier.Notify(testReading(), testThreshold())
+	notifier, err := alert.NewWebhookNotifier("", nil)
+	if err != nil {
+		t.Fatalf("NewWebhookNotifier: %v", err)
+	}
+	err = notifier.Notify(testReading(), testThreshold())
 	if err != nil {
 		t.Fatalf("expected no error for empty webhook URL, got %v", err)
 	}
@@ -110,8 +131,11 @@ func TestWebhookNotifier_Notify_NonSuccessStatus(t *testing.T) {
 		},
 	}
 
-	notifier := alert.NewWebhookNotifier("https://hooks.example.com/alert", client)
-	err := notifier.Notify(testReading(), testThreshold())
+	notifier, err := alert.NewWebhookNotifierWithResolver("https://hooks.example.com/alert", client, publicResolver())
+	if err != nil {
+		t.Fatalf("NewWebhookNotifierWithResolver: %v", err)
+	}
+	err = notifier.Notify(testReading(), testThreshold())
 	if err == nil {
 		t.Error("expected error for non-success status code")
 	}
@@ -127,8 +151,11 @@ func TestWebhookNotifier_Notify_NetworkError(t *testing.T) {
 		},
 	}
 
-	notifier := alert.NewWebhookNotifier("https://hooks.example.com/alert", client)
-	err := notifier.Notify(testReading(), testThreshold())
+	notifier, err := alert.NewWebhookNotifierWithResolver("https://hooks.example.com/alert", client, publicResolver())
+	if err != nil {
+		t.Fatalf("NewWebhookNotifierWithResolver: %v", err)
+	}
+	err = notifier.Notify(testReading(), testThreshold())
 	if err == nil {
 		t.Error("expected error for network failure")
 	}
@@ -150,12 +177,15 @@ func TestWebhookNotifier_AlertMessage_TemperatureLow(t *testing.T) {
 		},
 	}
 
-	notifier := alert.NewWebhookNotifier("https://hooks.example.com/alert", client)
+	notifier, err := alert.NewWebhookNotifierWithResolver("https://hooks.example.com/alert", client, publicResolver())
+	if err != nil {
+		t.Fatalf("NewWebhookNotifierWithResolver: %v", err)
+	}
 	reading := testReading()
 	reading.Temperature = 15.0
 	reading.Humidity = 75.0 // within range
 
-	err := notifier.Notify(reading, testThreshold())
+	err = notifier.Notify(reading, testThreshold())
 	if err != nil {
 		t.Fatalf("expected no error, got %v", err)
 	}
@@ -167,5 +197,51 @@ func TestWebhookNotifier_AlertMessage_TemperatureLow(t *testing.T) {
 
 	if !strings.Contains(payload.Message, "below minimum") {
 		t.Errorf("expected message to contain 'below minimum', got: %s", payload.Message)
+	}
+}
+
+func TestNewWebhookNotifier_RejectsInvalidScheme(t *testing.T) {
+	_, err := alert.NewWebhookNotifierWithResolver("ftp://example.com/hook", nil, publicResolver())
+	if err == nil {
+		t.Fatal("expected error for ftp scheme, got nil")
+	}
+	if !strings.Contains(err.Error(), "scheme") {
+		t.Errorf("expected error about scheme, got: %v", err)
+	}
+}
+
+func TestNewWebhookNotifier_RejectsPrivateIP(t *testing.T) {
+	tests := []struct {
+		name string
+		ip   string
+	}{
+		{name: "loopback", ip: "127.0.0.1"},
+		{name: "private 10.x", ip: "10.0.0.1"},
+		{name: "private 192.168.x", ip: "192.168.1.1"},
+		{name: "private 172.16.x", ip: "172.16.0.1"},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			resolver := &mockResolver{ips: []string{tt.ip}}
+			_, err := alert.NewWebhookNotifierWithResolver("https://evil.example.com/hook", nil, resolver)
+			if err == nil {
+				t.Fatalf("expected error for private IP %s, got nil", tt.ip)
+			}
+			if !strings.Contains(err.Error(), "private IP") {
+				t.Errorf("expected 'private IP' in error, got: %v", err)
+			}
+		})
+	}
+}
+
+func TestNewWebhookNotifier_AcceptsPublicIP(t *testing.T) {
+	resolver := &mockResolver{ips: []string{"93.184.215.14"}}
+	notifier, err := alert.NewWebhookNotifierWithResolver("https://hooks.example.com/alert", nil, resolver)
+	if err != nil {
+		t.Fatalf("expected no error for public IP, got %v", err)
+	}
+	if notifier == nil {
+		t.Fatal("expected non-nil notifier")
 	}
 }

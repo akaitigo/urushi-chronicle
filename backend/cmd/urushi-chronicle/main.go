@@ -121,7 +121,10 @@ func main() {
 
 	// Initialize alert notifier (webhook URL from env; empty = no-op)
 	webhookURL := os.Getenv("ALERT_WEBHOOK_URL")
-	notifier := alert.NewWebhookNotifier(webhookURL, nil)
+	notifier, err := alert.NewWebhookNotifier(webhookURL, nil)
+	if err != nil {
+		logger.Fatalf("failed to initialize alert notifier: %v", err)
+	}
 
 	// Initialize monitoring service
 	monitorSvc := monitor.NewService(envRepo, thresholdRepo, notifier, logger)

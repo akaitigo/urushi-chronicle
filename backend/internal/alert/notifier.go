@@ -5,7 +5,9 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
+	"net"
 	"net/http"
+	"net/url"
 	"time"
 
 	"github.com/akaitigo/urushi-chronicle/internal/domain"
@@ -40,16 +42,80 @@ type HTTPClient interface {
 	Do(req *http.Request) (*http.Response, error)
 }
 
+// DNSResolver is an interface for resolving hostnames to IP addresses.
+// This allows test doubles to avoid actual DNS lookups.
+type DNSResolver interface {
+	LookupHost(host string) ([]string, error)
+}
+
+// defaultResolver uses the standard library's net.LookupHost.
+type defaultResolver struct{}
+
+func (defaultResolver) LookupHost(host string) ([]string, error) {
+	return net.LookupHost(host)
+}
+
 // NewWebhookNotifier creates a new WebhookNotifier.
 // If webhookURL is empty, notifications are silently dropped (no-op mode).
-func NewWebhookNotifier(webhookURL string, client HTTPClient) *WebhookNotifier {
+// Returns an error if the URL scheme is not http/https or if the host resolves to a private IP.
+func NewWebhookNotifier(webhookURL string, client HTTPClient) (*WebhookNotifier, error) {
+	return NewWebhookNotifierWithResolver(webhookURL, client, defaultResolver{})
+}
+
+// NewWebhookNotifierWithResolver creates a new WebhookNotifier with a custom DNS resolver.
+// Use this in tests to avoid actual DNS lookups.
+func NewWebhookNotifierWithResolver(webhookURL string, client HTTPClient, resolver DNSResolver) (*WebhookNotifier, error) {
 	if client == nil {
 		client = &http.Client{Timeout: 10 * time.Second}
+	}
+	if webhookURL != "" {
+		if err := validateWebhookURL(webhookURL, resolver); err != nil {
+			return nil, fmt.Errorf("invalid webhook URL: %w", err)
+		}
 	}
 	return &WebhookNotifier{
 		webhookURL: webhookURL,
 		client:     client,
+	}, nil
+}
+
+// validateWebhookURL checks that the URL uses http or https scheme
+// and does not resolve to a private/loopback IP address.
+func validateWebhookURL(rawURL string, resolver DNSResolver) error {
+	parsed, err := url.Parse(rawURL)
+	if err != nil {
+		return fmt.Errorf("failed to parse URL: %w", err)
 	}
+
+	// Only allow http and https schemes.
+	if parsed.Scheme != "http" && parsed.Scheme != "https" {
+		return fmt.Errorf("scheme %q is not allowed; only http and https are permitted", parsed.Scheme)
+	}
+
+	// Resolve host to IP addresses and reject private/loopback ranges.
+	hostname := parsed.Hostname()
+	ips, err := resolver.LookupHost(hostname)
+	if err != nil {
+		return fmt.Errorf("failed to resolve host %q: %w", hostname, err)
+	}
+
+	for _, ipStr := range ips {
+		ip := net.ParseIP(ipStr)
+		if ip == nil {
+			continue
+		}
+		if isPrivateIP(ip) {
+			return fmt.Errorf("host %q resolves to private IP %s", hostname, ipStr)
+		}
+	}
+
+	return nil
+}
+
+// isPrivateIP checks whether an IP address is in a private, loopback,
+// or link-local range.
+func isPrivateIP(ip net.IP) bool {
+	return ip.IsLoopback() || ip.IsPrivate() || ip.IsLinkLocalUnicast() || ip.IsLinkLocalMulticast()
 }
 
 // Notify sends an alert notification to the configured webhook URL.
