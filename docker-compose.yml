@@ -1,6 +1,6 @@
 services:
   db:
-    image: timescale/timescaledb:latest-pg16
+    image: timescale/timescaledb:2.17.0-pg16
     container_name: urushi-chronicle-db
     ports:
       - "5432:5432"
