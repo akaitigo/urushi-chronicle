@@ -325,6 +325,74 @@ func TestDeleteWork_NotFound(t *testing.T) {
 	}
 }
 
+// --- DELETE with cascade ---
+
+func TestDeleteWork_CascadeDeletesSteps(t *testing.T) {
+	workRepo := repository.NewMemoryWorkRepository()
+	stepRepo := repository.NewMemoryStepRepository()
+	h := handler.NewWorkHandler(workRepo, stepRepo)
+
+	workID := uuid.New()
+	now := time.Now().UTC()
+	workRepo.Seed(&domain.Work{
+		ID:        workID,
+		Title:     "カスケード削除テスト",
+		Technique: domain.TechniqueMakie,
+		Status:    domain.WorkStatusInProgress,
+		StartedAt: now,
+		CreatedAt: now,
+		UpdatedAt: now,
+	})
+
+	// Seed a process step for the work
+	stepID := uuid.New()
+	if err := stepRepo.Create(&domain.ProcessStep{
+		ID:        stepID,
+		WorkID:    workID,
+		Name:      "下塗り",
+		StepOrder: 1,
+		Category:  domain.StepCategoryShitanuri,
+		StartedAt: now,
+		CreatedAt: now,
+		UpdatedAt: now,
+	}); err != nil {
+		t.Fatalf("failed to seed step: %v", err)
+	}
+
+	// Verify step exists before delete
+	steps, err := stepRepo.FindByWorkID(workID)
+	if err != nil {
+		t.Fatalf("failed to find steps: %v", err)
+	}
+	if len(steps) != 1 {
+		t.Fatalf("expected 1 step before delete, got %d", len(steps))
+	}
+
+	// Delete the work
+	req := httptest.NewRequest(http.MethodDelete, "/api/v1/works/"+workID.String(), nil)
+	rr := httptest.NewRecorder()
+	h.ServeHTTP(rr, req)
+
+	if rr.Code != http.StatusNoContent {
+		t.Fatalf("expected 204, got %d: %s", rr.Code, rr.Body.String())
+	}
+
+	// Verify work is deleted
+	_, err = workRepo.FindByID(workID)
+	if err == nil {
+		t.Error("expected work to be deleted, but FindByID returned no error")
+	}
+
+	// Verify steps are cascade-deleted
+	steps, err = stepRepo.FindByWorkID(workID)
+	if err != nil {
+		t.Fatalf("failed to find steps after delete: %v", err)
+	}
+	if len(steps) != 0 {
+		t.Errorf("expected 0 steps after cascade delete, got %d", len(steps))
+	}
+}
+
 // --- Method Not Allowed ---
 
 func TestWorkHandler_MethodNotAllowed_Collection(t *testing.T) {
