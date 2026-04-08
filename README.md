@@ -26,6 +26,12 @@ cd backend && go mod download && go build ./...
 cd frontend && npm install && npm run dev
 ```
 
+> **注意**: `docker-entrypoint-initdb.d` にマウントされたマイグレーションSQLは、PostgreSQLの初回起動時のみ実行されます。スキーマを変更した場合は、既存のボリュームを削除してから再起動してください:
+> ```bash
+> docker compose down -v
+> docker compose up -d
+> ```
+
 ## 開発コマンド
 
 ```bash
