@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"fmt"
 	"log"
 	"net/http"
 	"os"
@@ -19,6 +20,17 @@ import (
 	"github.com/google/uuid"
 )
 
+// validateStoreType checks that storeType is one of the allowed values.
+// Returns an error for invalid values.
+func validateStoreType(storeType string) error {
+	switch storeType {
+	case "postgres", "memory", "":
+		return nil
+	default:
+		return fmt.Errorf("invalid STORE_TYPE=%q: must be \"postgres\", \"memory\", or empty", storeType)
+	}
+}
+
 func main() {
 	logger := log.New(os.Stdout, "[urushi-chronicle] ", log.LstdFlags)
 
@@ -35,6 +47,11 @@ func main() {
 
 	storeType := os.Getenv("STORE_TYPE")
 	databaseURL := os.Getenv("DATABASE_URL")
+
+	// Validate STORE_TYPE before proceeding.
+	if err := validateStoreType(storeType); err != nil {
+		logger.Fatalf("%v", err)
+	}
 
 	// Determine effective store type
 	usePostgres := storeType == "postgres" || (storeType == "" && databaseURL != "")
