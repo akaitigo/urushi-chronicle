@@ -2,11 +2,14 @@ package main
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"log"
 	"net/http"
 	"os"
+	"os/signal"
 	"strings"
+	"syscall"
 	"time"
 
 	"github.com/akaitigo/urushi-chronicle/internal/alert"
@@ -170,8 +173,35 @@ func main() {
 		IdleTimeout:  120 * time.Second,
 	}
 
-	logger.Printf("API server starting on :%s", port)
-	if err := srv.ListenAndServe(); err != nil {
-		logger.Fatalf("server failed: %v", err)
+	// Channel to receive OS signals for graceful shutdown
+	sigCh := make(chan os.Signal, 1)
+	signal.Notify(sigCh, syscall.SIGTERM, syscall.SIGINT)
+
+	// Channel to receive server errors
+	errCh := make(chan error, 1)
+
+	go func() {
+		logger.Printf("API server starting on :%s", port)
+		if err := srv.ListenAndServe(); err != nil && !errors.Is(err, http.ErrServerClosed) {
+			errCh <- err
+		}
+	}()
+
+	// Wait for shutdown signal or server error
+	select {
+	case sig := <-sigCh:
+		logger.Printf("received signal %v, initiating graceful shutdown...", sig)
+	case err := <-errCh:
+		logger.Printf("server error: %v, initiating shutdown...", err)
 	}
+
+	// Graceful shutdown with 30-second timeout
+	const shutdownTimeout = 30 * time.Second
+	shutdownCtx, shutdownCancel := context.WithTimeout(context.Background(), shutdownTimeout)
+	defer shutdownCancel()
+
+	if err := srv.Shutdown(shutdownCtx); err != nil {
+		logger.Fatalf("graceful shutdown failed: %v", err)
+	}
+	logger.Println("server shut down gracefully")
 }
