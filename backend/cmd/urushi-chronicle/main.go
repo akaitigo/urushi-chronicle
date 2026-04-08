@@ -65,9 +65,8 @@ func main() {
 		}
 
 		ctx, cancel := context.WithTimeout(context.Background(), database.DefaultConnectTimeout)
-		defer cancel()
-
 		pool, err := database.NewPool(ctx, databaseURL)
+		cancel() // contextはDB接続確立後に不要なため即座にキャンセル
 		if err != nil {
 			logger.Fatalf("failed to connect to database: %v", err)
 		}
