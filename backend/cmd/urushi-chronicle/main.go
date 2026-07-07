@@ -133,8 +133,10 @@ func main() {
 
 	// Initialize HTTP handlers
 	envHandler := handler.NewEnvironmentHandler(envRepo, thresholdRepo, monitorSvc)
-	bucketName := os.Getenv("GCS_BUCKET")
-	uploader := storage.NewGCSUploader(bucketName)
+	uploader, err := storage.NewUploaderFromEnv(logger)
+	if err != nil {
+		logger.Fatalf("failed to initialize image uploader: %v", err)
+	}
 	workHandler := handler.NewWorkHandler(workRepo, stepRepo)
 	stepHandler := handler.NewStepHandler(stepRepo, workRepo, uploader)
 

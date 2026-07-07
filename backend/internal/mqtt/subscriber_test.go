@@ -1,6 +1,7 @@
 package mqtt_test
 
 import (
+	"errors"
 	"strings"
 	"testing"
 
@@ -223,6 +224,82 @@ func TestSubscriber_ParseMessage_MissingTemperature(t *testing.T) {
 	err := sub.ParseMessage([]byte(payload))
 	if err == nil {
 		t.Error("expected error for missing temperature")
+	}
+}
+
+func TestSubscriber_ParseMessage_PayloadTooLarge(t *testing.T) {
+	handler := func(_ domain.EnvironmentReading) error { return nil }
+	sub := mqtt.NewSubscriberWithMaxPayload("urushi/sensors/+", handler, 16)
+
+	// 17 bytes exceeds the 16-byte limit.
+	payload := []byte(`{"sensor_id":"esp32-too-large"}`)
+	err := sub.ParseMessage(payload)
+	if err == nil {
+		t.Fatal("expected error for oversized payload")
+	}
+	if !errors.Is(err, mqtt.ErrPayloadTooLarge) {
+		t.Errorf("expected ErrPayloadTooLarge, got: %v", err)
+	}
+}
+
+func TestSubscriber_ParseMessage_PayloadAtLimit(t *testing.T) {
+	var received domain.EnvironmentReading
+	handler := func(r domain.EnvironmentReading) error {
+		received = r
+		return nil
+	}
+
+	payload := []byte(`{"sensor_id":"esp32-001","location":"urushi_buro","temperature":25.0,"humidity":75.0}`)
+
+	// Exactly at the limit is accepted.
+	subAtLimit := mqtt.NewSubscriberWithMaxPayload("urushi/sensors/+", handler, len(payload))
+	if err := subAtLimit.ParseMessage(payload); err != nil {
+		t.Fatalf("payload at exactly the limit should be accepted, got: %v", err)
+	}
+	if received.SensorID != "esp32-001" {
+		t.Errorf("expected reading to be parsed, got sensor_id %q", received.SensorID)
+	}
+
+	// One byte over the limit is rejected.
+	subOverLimit := mqtt.NewSubscriberWithMaxPayload("urushi/sensors/+", handler, len(payload)-1)
+	if err := subOverLimit.ParseMessage(payload); !errors.Is(err, mqtt.ErrPayloadTooLarge) {
+		t.Errorf("payload one byte over the limit should be rejected, got: %v", err)
+	}
+}
+
+func TestNewSubscriberWithMaxPayload_NonPositiveFallsBack(t *testing.T) {
+	handler := func(_ domain.EnvironmentReading) error { return nil }
+	sub := mqtt.NewSubscriberWithMaxPayload("urushi/sensors/+", handler, 0)
+	if sub.MaxPayloadSize() != mqtt.DefaultMaxPayloadSize {
+		t.Errorf("expected default max payload %d, got %d", mqtt.DefaultMaxPayloadSize, sub.MaxPayloadSize())
+	}
+}
+
+func TestMaxPayloadSizeFromEnv(t *testing.T) {
+	tests := []struct {
+		name string
+		set  bool
+		val  string
+		want int
+	}{
+		{name: "unset uses default", set: false, want: mqtt.DefaultMaxPayloadSize},
+		{name: "valid override", set: true, val: "1024", want: 1024},
+		{name: "non-numeric uses default", set: true, val: "abc", want: mqtt.DefaultMaxPayloadSize},
+		{name: "zero uses default", set: true, val: "0", want: mqtt.DefaultMaxPayloadSize},
+		{name: "negative uses default", set: true, val: "-5", want: mqtt.DefaultMaxPayloadSize},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if tt.set {
+				t.Setenv(mqtt.MaxPayloadSizeEnvVar, tt.val)
+			} else {
+				t.Setenv(mqtt.MaxPayloadSizeEnvVar, "")
+			}
+			if got := mqtt.MaxPayloadSizeFromEnv(); got != tt.want {
+				t.Errorf("MaxPayloadSizeFromEnv() = %d, want %d", got, tt.want)
+			}
+		})
 	}
 }
 

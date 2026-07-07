@@ -7,10 +7,41 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"os"
+	"strconv"
 	"time"
 
 	"github.com/akaitigo/urushi-chronicle/internal/domain"
 )
+
+const (
+	// DefaultMaxPayloadSize is the default maximum accepted MQTT payload size
+	// (256 KiB). Sensor JSON payloads are well under 1 KiB, so this leaves ample
+	// headroom while preventing memory exhaustion from oversized messages.
+	DefaultMaxPayloadSize = 256 * 1024
+
+	// MaxPayloadSizeEnvVar overrides DefaultMaxPayloadSize when set to a positive integer.
+	MaxPayloadSizeEnvVar = "MQTT_MAX_PAYLOAD_BYTES"
+)
+
+// ErrPayloadTooLarge is returned by ParseMessage when a payload exceeds the
+// configured maximum size. Callers should discard the message and log the event.
+var ErrPayloadTooLarge = errors.New("mqtt payload exceeds maximum allowed size")
+
+// MaxPayloadSizeFromEnv returns the maximum payload size configured via the
+// MQTT_MAX_PAYLOAD_BYTES environment variable, or DefaultMaxPayloadSize when the
+// variable is unset, non-numeric, or non-positive.
+func MaxPayloadSizeFromEnv() int {
+	raw := os.Getenv(MaxPayloadSizeEnvVar)
+	if raw == "" {
+		return DefaultMaxPayloadSize
+	}
+	n, err := strconv.Atoi(raw)
+	if err != nil || n <= 0 {
+		return DefaultMaxPayloadSize
+	}
+	return n
+}
 
 // SensorPayload represents the raw JSON payload received from an IoT sensor via MQTT.
 type SensorPayload struct {
@@ -68,16 +99,33 @@ type MessageHandler func(reading domain.EnvironmentReading) error
 // Subscriber listens to an MQTT topic and processes sensor messages.
 // In this MVP, it provides ParseMessage for integration with any MQTT client library.
 type Subscriber struct {
-	topic   string
-	handler MessageHandler
+	topic          string
+	handler        MessageHandler
+	maxPayloadSize int
 }
 
-// NewSubscriber creates a new MQTT Subscriber for the given topic.
+// NewSubscriber creates a new MQTT Subscriber for the given topic using the
+// default maximum payload size.
 func NewSubscriber(topic string, handler MessageHandler) *Subscriber {
-	return &Subscriber{
-		topic:   topic,
-		handler: handler,
+	return NewSubscriberWithMaxPayload(topic, handler, DefaultMaxPayloadSize)
+}
+
+// NewSubscriberWithMaxPayload creates a Subscriber with an explicit maximum
+// payload size in bytes. A non-positive value falls back to DefaultMaxPayloadSize.
+func NewSubscriberWithMaxPayload(topic string, handler MessageHandler, maxPayloadSize int) *Subscriber {
+	if maxPayloadSize <= 0 {
+		maxPayloadSize = DefaultMaxPayloadSize
 	}
+	return &Subscriber{
+		topic:          topic,
+		handler:        handler,
+		maxPayloadSize: maxPayloadSize,
+	}
+}
+
+// MaxPayloadSize returns the maximum payload size, in bytes, this subscriber accepts.
+func (s *Subscriber) MaxPayloadSize() int {
+	return s.maxPayloadSize
 }
 
 // Topic returns the MQTT topic this subscriber listens to.
@@ -87,8 +135,13 @@ func (s *Subscriber) Topic() string {
 
 // ParseMessage parses and validates a raw MQTT message payload, then forwards
 // the resulting EnvironmentReading to the handler.
-// Returns an error if the payload is invalid or the handler fails.
+// Returns ErrPayloadTooLarge if the payload exceeds the configured maximum size,
+// or an error if the payload is invalid or the handler fails.
 func (s *Subscriber) ParseMessage(payload []byte) error {
+	if len(payload) > s.maxPayloadSize {
+		return fmt.Errorf("%w: %d bytes (limit %d)", ErrPayloadTooLarge, len(payload), s.maxPayloadSize)
+	}
+
 	var sensorPayload SensorPayload
 	if err := json.Unmarshal(payload, &sensorPayload); err != nil {
 		return fmt.Errorf("invalid JSON payload: %w", err)
