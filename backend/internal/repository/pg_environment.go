@@ -25,7 +25,8 @@ func (r *PgEnvironmentRepository) Store(reading *domain.EnvironmentReading) erro
 		INSERT INTO environment_readings (time, sensor_id, location, temperature, humidity, work_id, process_step_id)
 		VALUES ($1, $2, $3, $4, $5, $6, $7)
 	`
-	_, err := r.pool.Exec(ctx, query,
+	_, err := r.pool.Exec(
+		ctx, query,
 		reading.Time,
 		reading.SensorID,
 		reading.Location,

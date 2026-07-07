@@ -90,7 +90,8 @@ func (r *PgWorkRepository) Create(work *domain.Work) error {
 		                   started_at, completed_at, created_at, updated_at)
 		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
 	`
-	_, err := r.pool.Exec(ctx, query,
+	_, err := r.pool.Exec(
+		ctx, query,
 		work.ID, work.Title, work.Description, work.Technique, work.Material, work.Status,
 		work.StartedAt, work.CompletedAt, work.CreatedAt, work.UpdatedAt,
 	)
@@ -113,7 +114,8 @@ func (r *PgWorkRepository) Update(work *domain.Work) error {
 		    started_at = $7, completed_at = $8, updated_at = $9
 		WHERE id = $1
 	`
-	tag, err := r.pool.Exec(ctx, query,
+	tag, err := r.pool.Exec(
+		ctx, query,
 		work.ID, work.Title, work.Description, work.Technique, work.Material, work.Status,
 		work.StartedAt, work.CompletedAt, work.UpdatedAt,
 	)

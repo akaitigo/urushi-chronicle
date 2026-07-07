@@ -30,7 +30,8 @@ func (r *PgAlertThresholdRepository) Create(threshold *domain.AlertThreshold) er
 			 enabled, created_at, updated_at)
 		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
 	`
-	_, err := r.pool.Exec(ctx, query,
+	_, err := r.pool.Exec(
+		ctx, query,
 		threshold.ID, threshold.SensorID,
 		threshold.TemperatureMin, threshold.TemperatureMax,
 		threshold.HumidityMin, threshold.HumidityMax,
@@ -150,7 +151,8 @@ func (r *PgAlertThresholdRepository) Update(threshold *domain.AlertThreshold) er
 		    humidity_min = $5, humidity_max = $6, enabled = $7, updated_at = $8
 		WHERE id = $1
 	`
-	tag, err := r.pool.Exec(ctx, query,
+	tag, err := r.pool.Exec(
+		ctx, query,
 		threshold.ID, threshold.SensorID,
 		threshold.TemperatureMin, threshold.TemperatureMax,
 		threshold.HumidityMin, threshold.HumidityMax,
@@ -210,7 +212,8 @@ func (r *PgAlertThresholdRepository) FindAndUpdate(id uuid.UUID, updateFn func(e
 		    humidity_min = $5, humidity_max = $6, enabled = $7, updated_at = $8
 		WHERE id = $1
 	`
-	_, err = tx.Exec(ctx, updateQuery,
+	_, err = tx.Exec(
+		ctx, updateQuery,
 		updated.ID, updated.SensorID,
 		updated.TemperatureMin, updated.TemperatureMax,
 		updated.HumidityMin, updated.HumidityMax,
