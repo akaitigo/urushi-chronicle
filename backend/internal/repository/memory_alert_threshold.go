@@ -1,6 +1,7 @@
 package repository
 
 import (
+	"context"
 	"sync"
 
 	"github.com/akaitigo/urushi-chronicle/internal/domain"
@@ -21,7 +22,7 @@ func NewMemoryAlertThresholdRepository() *MemoryAlertThresholdRepository {
 }
 
 // Create stores a new alert threshold.
-func (r *MemoryAlertThresholdRepository) Create(threshold *domain.AlertThreshold) error {
+func (r *MemoryAlertThresholdRepository) Create(_ context.Context, threshold *domain.AlertThreshold) error {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 
@@ -31,7 +32,7 @@ func (r *MemoryAlertThresholdRepository) Create(threshold *domain.AlertThreshold
 }
 
 // FindByID retrieves an alert threshold by its ID.
-func (r *MemoryAlertThresholdRepository) FindByID(id uuid.UUID) (*domain.AlertThreshold, error) {
+func (r *MemoryAlertThresholdRepository) FindByID(_ context.Context, id uuid.UUID) (*domain.AlertThreshold, error) {
 	r.mu.RLock()
 	defer r.mu.RUnlock()
 
@@ -44,7 +45,7 @@ func (r *MemoryAlertThresholdRepository) FindByID(id uuid.UUID) (*domain.AlertTh
 }
 
 // FindBySensorID retrieves all enabled alert thresholds for a given sensor.
-func (r *MemoryAlertThresholdRepository) FindBySensorID(sensorID string) ([]domain.AlertThreshold, error) {
+func (r *MemoryAlertThresholdRepository) FindBySensorID(_ context.Context, sensorID string) ([]domain.AlertThreshold, error) {
 	r.mu.RLock()
 	defer r.mu.RUnlock()
 
@@ -58,7 +59,7 @@ func (r *MemoryAlertThresholdRepository) FindBySensorID(sensorID string) ([]doma
 }
 
 // FindAllEnabled retrieves all enabled alert thresholds.
-func (r *MemoryAlertThresholdRepository) FindAllEnabled() ([]domain.AlertThreshold, error) {
+func (r *MemoryAlertThresholdRepository) FindAllEnabled(_ context.Context) ([]domain.AlertThreshold, error) {
 	r.mu.RLock()
 	defer r.mu.RUnlock()
 
@@ -72,7 +73,7 @@ func (r *MemoryAlertThresholdRepository) FindAllEnabled() ([]domain.AlertThresho
 }
 
 // Update replaces an existing alert threshold.
-func (r *MemoryAlertThresholdRepository) Update(threshold *domain.AlertThreshold) error {
+func (r *MemoryAlertThresholdRepository) Update(_ context.Context, threshold *domain.AlertThreshold) error {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 
@@ -85,7 +86,7 @@ func (r *MemoryAlertThresholdRepository) Update(threshold *domain.AlertThreshold
 }
 
 // FindAndUpdate atomically retrieves and updates a threshold under a single lock.
-func (r *MemoryAlertThresholdRepository) FindAndUpdate(id uuid.UUID, updateFn func(existing *domain.AlertThreshold) (*domain.AlertThreshold, error)) (*domain.AlertThreshold, error) {
+func (r *MemoryAlertThresholdRepository) FindAndUpdate(_ context.Context, id uuid.UUID, updateFn func(existing *domain.AlertThreshold) (*domain.AlertThreshold, error)) (*domain.AlertThreshold, error) {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 
@@ -106,7 +107,7 @@ func (r *MemoryAlertThresholdRepository) FindAndUpdate(id uuid.UUID, updateFn fu
 }
 
 // Delete removes an alert threshold by its ID.
-func (r *MemoryAlertThresholdRepository) Delete(id uuid.UUID) error {
+func (r *MemoryAlertThresholdRepository) Delete(_ context.Context, id uuid.UUID) error {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 

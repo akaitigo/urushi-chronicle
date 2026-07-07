@@ -56,22 +56,22 @@ func TestPgStepRepository_CRUD(t *testing.T) {
 	// Create parent work first
 	work := newPgTestWork("工程テスト親作品")
 	t.Cleanup(func() {
-		_ = stepRepo.DeleteByWorkID(work.ID)
-		_ = workRepo.Delete(work.ID)
+		_ = stepRepo.DeleteByWorkID(context.Background(), work.ID)
+		_ = workRepo.Delete(context.Background(), work.ID)
 	})
-	if err := workRepo.Create(work); err != nil {
+	if err := workRepo.Create(context.Background(), work); err != nil {
 		t.Fatalf("Create work failed: %v", err)
 	}
 
 	step := newPgTestStep(work.ID, "下塗り", 1)
 
 	// Create
-	if err := stepRepo.Create(step); err != nil {
+	if err := stepRepo.Create(context.Background(), step); err != nil {
 		t.Fatalf("Create step failed: %v", err)
 	}
 
 	// FindByID
-	found, err := stepRepo.FindByID(work.ID, step.ID)
+	found, err := stepRepo.FindByID(context.Background(), work.ID, step.ID)
 	if err != nil {
 		t.Fatalf("FindByID failed: %v", err)
 	}
@@ -83,7 +83,7 @@ func TestPgStepRepository_CRUD(t *testing.T) {
 	}
 
 	// FindByWorkID
-	steps, err := stepRepo.FindByWorkID(work.ID)
+	steps, err := stepRepo.FindByWorkID(context.Background(), work.ID)
 	if err != nil {
 		t.Fatalf("FindByWorkID failed: %v", err)
 	}
@@ -94,15 +94,15 @@ func TestPgStepRepository_CRUD(t *testing.T) {
 	// Update
 	found.Name = "更新下塗り"
 	found.UpdatedAt = time.Now().UTC().Truncate(time.Microsecond)
-	if err := stepRepo.Update(found); err != nil {
+	if err := stepRepo.Update(context.Background(), found); err != nil {
 		t.Fatalf("Update failed: %v", err)
 	}
 
 	// Delete
-	if err := stepRepo.Delete(work.ID, step.ID); err != nil {
+	if err := stepRepo.Delete(context.Background(), work.ID, step.ID); err != nil {
 		t.Fatalf("Delete failed: %v", err)
 	}
-	_, err = stepRepo.FindByID(work.ID, step.ID)
+	_, err = stepRepo.FindByID(context.Background(), work.ID, step.ID)
 	if !errors.Is(err, repository.ErrNotFound) {
 		t.Errorf("expected ErrNotFound after delete, got %v", err)
 	}
@@ -113,20 +113,20 @@ func TestPgStepRepository_Create_Conflict(t *testing.T) {
 
 	work := newPgTestWork("重複工程テスト")
 	t.Cleanup(func() {
-		_ = stepRepo.DeleteByWorkID(work.ID)
-		_ = workRepo.Delete(work.ID)
+		_ = stepRepo.DeleteByWorkID(context.Background(), work.ID)
+		_ = workRepo.Delete(context.Background(), work.ID)
 	})
-	if err := workRepo.Create(work); err != nil {
+	if err := workRepo.Create(context.Background(), work); err != nil {
 		t.Fatalf("Create work failed: %v", err)
 	}
 
 	step1 := newPgTestStep(work.ID, "工程1", 1)
-	if err := stepRepo.Create(step1); err != nil {
+	if err := stepRepo.Create(context.Background(), step1); err != nil {
 		t.Fatalf("Create step1 failed: %v", err)
 	}
 
 	step2 := newPgTestStep(work.ID, "工程2", 1) // same step_order
-	err := stepRepo.Create(step2)
+	err := stepRepo.Create(context.Background(), step2)
 	if !errors.Is(err, repository.ErrConflict) {
 		t.Errorf("expected ErrConflict on duplicate step_order, got %v", err)
 	}
@@ -137,24 +137,24 @@ func TestPgStepRepository_DeleteByWorkID(t *testing.T) {
 
 	work := newPgTestWork("一括削除テスト")
 	t.Cleanup(func() {
-		_ = workRepo.Delete(work.ID)
+		_ = workRepo.Delete(context.Background(), work.ID)
 	})
-	if err := workRepo.Create(work); err != nil {
+	if err := workRepo.Create(context.Background(), work); err != nil {
 		t.Fatalf("Create work failed: %v", err)
 	}
 
 	for i := 1; i <= 3; i++ {
 		step := newPgTestStep(work.ID, "工程", i)
-		if err := stepRepo.Create(step); err != nil {
+		if err := stepRepo.Create(context.Background(), step); err != nil {
 			t.Fatalf("Create step %d failed: %v", i, err)
 		}
 	}
 
-	if err := stepRepo.DeleteByWorkID(work.ID); err != nil {
+	if err := stepRepo.DeleteByWorkID(context.Background(), work.ID); err != nil {
 		t.Fatalf("DeleteByWorkID failed: %v", err)
 	}
 
-	steps, err := stepRepo.FindByWorkID(work.ID)
+	steps, err := stepRepo.FindByWorkID(context.Background(), work.ID)
 	if err != nil {
 		t.Fatalf("FindByWorkID after delete failed: %v", err)
 	}

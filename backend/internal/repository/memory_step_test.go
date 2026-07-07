@@ -1,6 +1,7 @@
 package repository_test
 
 import (
+	"context"
 	"testing"
 	"time"
 
@@ -27,11 +28,11 @@ func TestMemoryStepRepository_CreateAndFindByID(t *testing.T) {
 	workID := uuid.New()
 	step := newStep(workID, 1)
 
-	if err := repo.Create(step); err != nil {
+	if err := repo.Create(context.Background(), step); err != nil {
 		t.Fatalf("Create failed: %v", err)
 	}
 
-	found, err := repo.FindByID(workID, step.ID)
+	found, err := repo.FindByID(context.Background(), workID, step.ID)
 	if err != nil {
 		t.Fatalf("FindByID failed: %v", err)
 	}
@@ -42,7 +43,7 @@ func TestMemoryStepRepository_CreateAndFindByID(t *testing.T) {
 
 func TestMemoryStepRepository_FindByID_NotFound(t *testing.T) {
 	repo := repository.NewMemoryStepRepository()
-	_, err := repo.FindByID(uuid.New(), uuid.New())
+	_, err := repo.FindByID(context.Background(), uuid.New(), uuid.New())
 	if err != repository.ErrNotFound {
 		t.Errorf("expected ErrNotFound, got %v", err)
 	}
@@ -55,12 +56,12 @@ func TestMemoryStepRepository_FindByWorkID_Ordered(t *testing.T) {
 	// Create in reverse order
 	for _, order := range []int{3, 1, 2} {
 		step := newStep(workID, order)
-		if err := repo.Create(step); err != nil {
+		if err := repo.Create(context.Background(), step); err != nil {
 			t.Fatalf("Create failed: %v", err)
 		}
 	}
 
-	steps, err := repo.FindByWorkID(workID)
+	steps, err := repo.FindByWorkID(context.Background(), workID)
 	if err != nil {
 		t.Fatalf("FindByWorkID failed: %v", err)
 	}
@@ -76,7 +77,7 @@ func TestMemoryStepRepository_FindByWorkID_Ordered(t *testing.T) {
 
 func TestMemoryStepRepository_FindByWorkID_EmptyResult(t *testing.T) {
 	repo := repository.NewMemoryStepRepository()
-	steps, err := repo.FindByWorkID(uuid.New())
+	steps, err := repo.FindByWorkID(context.Background(), uuid.New())
 	if err != nil {
 		t.Fatalf("FindByWorkID failed: %v", err)
 	}
@@ -90,12 +91,12 @@ func TestMemoryStepRepository_Create_StepOrderConflict(t *testing.T) {
 	workID := uuid.New()
 
 	step1 := newStep(workID, 1)
-	if err := repo.Create(step1); err != nil {
+	if err := repo.Create(context.Background(), step1); err != nil {
 		t.Fatalf("Create step1 failed: %v", err)
 	}
 
 	step2 := newStep(workID, 1) // same order
-	if err := repo.Create(step2); err != repository.ErrConflict {
+	if err := repo.Create(context.Background(), step2); err != repository.ErrConflict {
 		t.Errorf("expected ErrConflict, got %v", err)
 	}
 }
@@ -105,16 +106,16 @@ func TestMemoryStepRepository_Update(t *testing.T) {
 	workID := uuid.New()
 	step := newStep(workID, 1)
 
-	if err := repo.Create(step); err != nil {
+	if err := repo.Create(context.Background(), step); err != nil {
 		t.Fatalf("Create failed: %v", err)
 	}
 
 	step.Name = "更新された工程"
-	if err := repo.Update(step); err != nil {
+	if err := repo.Update(context.Background(), step); err != nil {
 		t.Fatalf("Update failed: %v", err)
 	}
 
-	found, err := repo.FindByID(workID, step.ID)
+	found, err := repo.FindByID(context.Background(), workID, step.ID)
 	if err != nil {
 		t.Fatalf("FindByID failed: %v", err)
 	}
@@ -126,7 +127,7 @@ func TestMemoryStepRepository_Update(t *testing.T) {
 func TestMemoryStepRepository_Update_NotFound(t *testing.T) {
 	repo := repository.NewMemoryStepRepository()
 	step := newStep(uuid.New(), 1)
-	if err := repo.Update(step); err != repository.ErrNotFound {
+	if err := repo.Update(context.Background(), step); err != repository.ErrNotFound {
 		t.Errorf("expected ErrNotFound, got %v", err)
 	}
 }
@@ -137,12 +138,12 @@ func TestMemoryStepRepository_Update_StepOrderConflict(t *testing.T) {
 
 	step1 := newStep(workID, 1)
 	step2 := newStep(workID, 2)
-	_ = repo.Create(step1)
-	_ = repo.Create(step2)
+	_ = repo.Create(context.Background(), step1)
+	_ = repo.Create(context.Background(), step2)
 
 	// Try to change step2's order to 1
 	step2.StepOrder = 1
-	if err := repo.Update(step2); err != repository.ErrConflict {
+	if err := repo.Update(context.Background(), step2); err != repository.ErrConflict {
 		t.Errorf("expected ErrConflict, got %v", err)
 	}
 }
@@ -152,13 +153,13 @@ func TestMemoryStepRepository_Delete(t *testing.T) {
 	workID := uuid.New()
 	step := newStep(workID, 1)
 
-	_ = repo.Create(step)
+	_ = repo.Create(context.Background(), step)
 
-	if err := repo.Delete(workID, step.ID); err != nil {
+	if err := repo.Delete(context.Background(), workID, step.ID); err != nil {
 		t.Fatalf("Delete failed: %v", err)
 	}
 
-	_, err := repo.FindByID(workID, step.ID)
+	_, err := repo.FindByID(context.Background(), workID, step.ID)
 	if err != repository.ErrNotFound {
 		t.Errorf("expected ErrNotFound after delete, got %v", err)
 	}
@@ -166,7 +167,7 @@ func TestMemoryStepRepository_Delete(t *testing.T) {
 
 func TestMemoryStepRepository_Delete_NotFound(t *testing.T) {
 	repo := repository.NewMemoryStepRepository()
-	if err := repo.Delete(uuid.New(), uuid.New()); err != repository.ErrNotFound {
+	if err := repo.Delete(context.Background(), uuid.New(), uuid.New()); err != repository.ErrNotFound {
 		t.Errorf("expected ErrNotFound, got %v", err)
 	}
 }

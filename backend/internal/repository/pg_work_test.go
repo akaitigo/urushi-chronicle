@@ -54,16 +54,16 @@ func TestPgWorkRepository_CRUD(t *testing.T) {
 	work := newPgTestWork("PGテスト蒔絵")
 	t.Cleanup(func() {
 		// Best-effort cleanup
-		_ = repo.Delete(work.ID)
+		_ = repo.Delete(context.Background(), work.ID)
 	})
 
 	// Create
-	if err := repo.Create(work); err != nil {
+	if err := repo.Create(context.Background(), work); err != nil {
 		t.Fatalf("Create failed: %v", err)
 	}
 
 	// FindByID
-	found, err := repo.FindByID(work.ID)
+	found, err := repo.FindByID(context.Background(), work.ID)
 	if err != nil {
 		t.Fatalf("FindByID failed: %v", err)
 	}
@@ -74,10 +74,10 @@ func TestPgWorkRepository_CRUD(t *testing.T) {
 	// Update
 	found.Title = "更新後タイトル"
 	found.UpdatedAt = time.Now().UTC().Truncate(time.Microsecond)
-	if err := repo.Update(found); err != nil {
+	if err := repo.Update(context.Background(), found); err != nil {
 		t.Fatalf("Update failed: %v", err)
 	}
-	updated, err := repo.FindByID(work.ID)
+	updated, err := repo.FindByID(context.Background(), work.ID)
 	if err != nil {
 		t.Fatalf("FindByID after update failed: %v", err)
 	}
@@ -86,7 +86,7 @@ func TestPgWorkRepository_CRUD(t *testing.T) {
 	}
 
 	// FindAll
-	works, err := repo.FindAll()
+	works, err := repo.FindAll(context.Background())
 	if err != nil {
 		t.Fatalf("FindAll failed: %v", err)
 	}
@@ -95,10 +95,10 @@ func TestPgWorkRepository_CRUD(t *testing.T) {
 	}
 
 	// Delete
-	if err := repo.Delete(work.ID); err != nil {
+	if err := repo.Delete(context.Background(), work.ID); err != nil {
 		t.Fatalf("Delete failed: %v", err)
 	}
-	_, err = repo.FindByID(work.ID)
+	_, err = repo.FindByID(context.Background(), work.ID)
 	if !errors.Is(err, repository.ErrNotFound) {
 		t.Errorf("expected ErrNotFound after delete, got %v", err)
 	}
@@ -109,14 +109,14 @@ func TestPgWorkRepository_Create_Conflict(t *testing.T) {
 
 	work := newPgTestWork("重複テスト")
 	t.Cleanup(func() {
-		_ = repo.Delete(work.ID)
+		_ = repo.Delete(context.Background(), work.ID)
 	})
 
-	if err := repo.Create(work); err != nil {
+	if err := repo.Create(context.Background(), work); err != nil {
 		t.Fatalf("first Create failed: %v", err)
 	}
 
-	err := repo.Create(work)
+	err := repo.Create(context.Background(), work)
 	if !errors.Is(err, repository.ErrConflict) {
 		t.Errorf("expected ErrConflict on duplicate insert, got %v", err)
 	}
@@ -125,7 +125,7 @@ func TestPgWorkRepository_Create_Conflict(t *testing.T) {
 func TestPgWorkRepository_FindByID_NotFound(t *testing.T) {
 	repo := setupPgWorkRepo(t)
 
-	_, err := repo.FindByID(uuid.New())
+	_, err := repo.FindByID(context.Background(), uuid.New())
 	if !errors.Is(err, repository.ErrNotFound) {
 		t.Errorf("expected ErrNotFound, got %v", err)
 	}

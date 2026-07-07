@@ -24,9 +24,7 @@ func NewPgStepRepository(pool *pgxpool.Pool) *PgStepRepository {
 }
 
 // Create inserts a new process step. Returns ErrConflict if step_order is already taken for the work.
-func (r *PgStepRepository) Create(step *domain.ProcessStep) error {
-	ctx := context.Background()
-
+func (r *PgStepRepository) Create(ctx context.Context, step *domain.ProcessStep) error {
 	materialsJSON, err := json.Marshal(step.MaterialsUsed)
 	if err != nil {
 		return fmt.Errorf("failed to marshal materials_used: %w", err)
@@ -54,8 +52,7 @@ func (r *PgStepRepository) Create(step *domain.ProcessStep) error {
 }
 
 // FindByID retrieves a single process step by work ID and step ID.
-func (r *PgStepRepository) FindByID(workID, stepID uuid.UUID) (*domain.ProcessStep, error) {
-	ctx := context.Background()
+func (r *PgStepRepository) FindByID(ctx context.Context, workID, stepID uuid.UUID) (*domain.ProcessStep, error) {
 	query := `
 		SELECT id, work_id, name, description, step_order, category,
 		       materials_used, notes, started_at, completed_at, created_at, updated_at
@@ -83,8 +80,7 @@ func (r *PgStepRepository) FindByID(workID, stepID uuid.UUID) (*domain.ProcessSt
 }
 
 // FindByWorkID retrieves all process steps for a work, ordered by step_order.
-func (r *PgStepRepository) FindByWorkID(workID uuid.UUID) ([]domain.ProcessStep, error) {
-	ctx := context.Background()
+func (r *PgStepRepository) FindByWorkID(ctx context.Context, workID uuid.UUID) ([]domain.ProcessStep, error) {
 	query := `
 		SELECT id, work_id, name, description, step_order, category,
 		       materials_used, notes, started_at, completed_at, created_at, updated_at
@@ -126,9 +122,7 @@ func (r *PgStepRepository) FindByWorkID(workID uuid.UUID) ([]domain.ProcessStep,
 
 // Update replaces an existing process step. Returns ErrNotFound if it does not exist.
 // Returns ErrConflict if step_order uniqueness is violated.
-func (r *PgStepRepository) Update(step *domain.ProcessStep) error {
-	ctx := context.Background()
-
+func (r *PgStepRepository) Update(ctx context.Context, step *domain.ProcessStep) error {
 	materialsJSON, err := json.Marshal(step.MaterialsUsed)
 	if err != nil {
 		return fmt.Errorf("failed to marshal materials_used: %w", err)
@@ -159,8 +153,7 @@ func (r *PgStepRepository) Update(step *domain.ProcessStep) error {
 }
 
 // Delete removes a process step. Returns ErrNotFound if it does not exist.
-func (r *PgStepRepository) Delete(workID, stepID uuid.UUID) error {
-	ctx := context.Background()
+func (r *PgStepRepository) Delete(ctx context.Context, workID, stepID uuid.UUID) error {
 	query := `DELETE FROM process_steps WHERE work_id = $1 AND id = $2`
 	tag, err := r.pool.Exec(ctx, query, workID, stepID)
 	if err != nil {
@@ -174,8 +167,7 @@ func (r *PgStepRepository) Delete(workID, stepID uuid.UUID) error {
 
 // DeleteByWorkID removes all process steps associated with a given work.
 // Returns nil if the work has no steps (idempotent).
-func (r *PgStepRepository) DeleteByWorkID(workID uuid.UUID) error {
-	ctx := context.Background()
+func (r *PgStepRepository) DeleteByWorkID(ctx context.Context, workID uuid.UUID) error {
 	query := `DELETE FROM process_steps WHERE work_id = $1`
 	_, err := r.pool.Exec(ctx, query, workID)
 	if err != nil {

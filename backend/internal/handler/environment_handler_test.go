@@ -2,6 +2,7 @@ package handler_test
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"log"
 	"net/http"
@@ -108,7 +109,7 @@ func TestEnvironmentHandler_QueryReadings(t *testing.T) {
 		Temperature: 25.0,
 		Humidity:    75.0,
 	}
-	if err := envRepo.Store(reading); err != nil {
+	if err := envRepo.Store(context.Background(), reading); err != nil {
 		t.Fatalf("store failed: %v", err)
 	}
 

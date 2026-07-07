@@ -1,6 +1,7 @@
 package handler
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
 	"net/http"
@@ -64,6 +65,8 @@ type uploadRequest struct {
 //   - DELETE /api/v1/works/{workID}/steps/{stepID}
 //   - POST   /api/v1/works/{workID}/steps/{stepID}/upload
 func (h *StepHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+
 	workID, stepID, trailing, ok := h.parsePath(r.URL.Path)
 	if !ok {
 		writeError(w, http.StatusBadRequest, "invalid URL path")
@@ -71,7 +74,7 @@ func (h *StepHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Verify work exists
-	if _, err := h.workRepo.FindByID(workID); err != nil {
+	if _, err := h.workRepo.FindByID(ctx, workID); err != nil {
 		if errors.Is(err, repository.ErrNotFound) {
 			writeError(w, http.StatusNotFound, "work not found")
 			return
@@ -86,9 +89,9 @@ func (h *StepHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		// /api/v1/works/{workID}/steps
 		switch r.Method {
 		case http.MethodPost:
-			h.createStep(w, r, workID)
+			h.createStep(ctx, w, r, workID)
 		case http.MethodGet:
-			h.listSteps(w, workID)
+			h.listSteps(ctx, w, workID)
 		default:
 			w.Header().Set("Allow", "GET, POST")
 			writeError(w, http.StatusMethodNotAllowed, "method not allowed")
@@ -100,16 +103,16 @@ func (h *StepHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 			writeError(w, http.StatusMethodNotAllowed, "method not allowed")
 			return
 		}
-		h.requestUploadURL(w, r, workID, stepID)
+		h.requestUploadURL(ctx, w, r, workID, stepID)
 	case stepID != uuid.Nil && trailing == "":
 		// /api/v1/works/{workID}/steps/{stepID}
 		switch r.Method {
 		case http.MethodGet:
-			h.getStep(w, workID, stepID)
+			h.getStep(ctx, w, workID, stepID)
 		case http.MethodPut:
-			h.updateStep(w, r, workID, stepID)
+			h.updateStep(ctx, w, r, workID, stepID)
 		case http.MethodDelete:
-			h.deleteStep(w, workID, stepID)
+			h.deleteStep(ctx, w, workID, stepID)
 		default:
 			w.Header().Set("Allow", "GET, PUT, DELETE")
 			writeError(w, http.StatusMethodNotAllowed, "method not allowed")
@@ -163,7 +166,7 @@ func (h *StepHandler) parsePath(path string) (workID, stepID uuid.UUID, trailing
 	return uuid.Nil, uuid.Nil, "", false
 }
 
-func (h *StepHandler) createStep(w http.ResponseWriter, r *http.Request, workID uuid.UUID) {
+func (h *StepHandler) createStep(ctx context.Context, w http.ResponseWriter, r *http.Request, workID uuid.UUID) {
 	r.Body = http.MaxBytesReader(w, r.Body, 1<<20)
 
 	var req createStepRequest
@@ -192,7 +195,7 @@ func (h *StepHandler) createStep(w http.ResponseWriter, r *http.Request, workID 
 		return
 	}
 
-	if err := h.stepRepo.Create(step); err != nil {
+	if err := h.stepRepo.Create(ctx, step); err != nil {
 		if errors.Is(err, repository.ErrConflict) {
 			writeError(w, http.StatusConflict, err.Error())
 			return
@@ -204,8 +207,8 @@ func (h *StepHandler) createStep(w http.ResponseWriter, r *http.Request, workID 
 	writeJSON(w, http.StatusCreated, step)
 }
 
-func (h *StepHandler) listSteps(w http.ResponseWriter, workID uuid.UUID) {
-	steps, err := h.stepRepo.FindByWorkID(workID)
+func (h *StepHandler) listSteps(ctx context.Context, w http.ResponseWriter, workID uuid.UUID) {
+	steps, err := h.stepRepo.FindByWorkID(ctx, workID)
 	if err != nil {
 		writeError(w, http.StatusInternalServerError, "failed to list steps")
 		return
@@ -217,8 +220,8 @@ func (h *StepHandler) listSteps(w http.ResponseWriter, workID uuid.UUID) {
 	})
 }
 
-func (h *StepHandler) getStep(w http.ResponseWriter, workID, stepID uuid.UUID) {
-	step, err := h.stepRepo.FindByID(workID, stepID)
+func (h *StepHandler) getStep(ctx context.Context, w http.ResponseWriter, workID, stepID uuid.UUID) {
+	step, err := h.stepRepo.FindByID(ctx, workID, stepID)
 	if err != nil {
 		if errors.Is(err, repository.ErrNotFound) {
 			writeError(w, http.StatusNotFound, "step not found")
@@ -231,10 +234,10 @@ func (h *StepHandler) getStep(w http.ResponseWriter, workID, stepID uuid.UUID) {
 	writeJSON(w, http.StatusOK, step)
 }
 
-func (h *StepHandler) updateStep(w http.ResponseWriter, r *http.Request, workID, stepID uuid.UUID) {
+func (h *StepHandler) updateStep(ctx context.Context, w http.ResponseWriter, r *http.Request, workID, stepID uuid.UUID) {
 	r.Body = http.MaxBytesReader(w, r.Body, 1<<20)
 
-	existing, err := h.stepRepo.FindByID(workID, stepID)
+	existing, err := h.stepRepo.FindByID(ctx, workID, stepID)
 	if err != nil {
 		if errors.Is(err, repository.ErrNotFound) {
 			writeError(w, http.StatusNotFound, "step not found")
@@ -280,7 +283,7 @@ func (h *StepHandler) updateStep(w http.ResponseWriter, r *http.Request, workID,
 		return
 	}
 
-	if err := h.stepRepo.Update(existing); err != nil {
+	if err := h.stepRepo.Update(ctx, existing); err != nil {
 		if errors.Is(err, repository.ErrConflict) {
 			writeError(w, http.StatusConflict, err.Error())
 			return
@@ -292,8 +295,8 @@ func (h *StepHandler) updateStep(w http.ResponseWriter, r *http.Request, workID,
 	writeJSON(w, http.StatusOK, existing)
 }
 
-func (h *StepHandler) deleteStep(w http.ResponseWriter, workID, stepID uuid.UUID) {
-	if err := h.stepRepo.Delete(workID, stepID); err != nil {
+func (h *StepHandler) deleteStep(ctx context.Context, w http.ResponseWriter, workID, stepID uuid.UUID) {
+	if err := h.stepRepo.Delete(ctx, workID, stepID); err != nil {
 		if errors.Is(err, repository.ErrNotFound) {
 			writeError(w, http.StatusNotFound, "step not found")
 			return
@@ -305,11 +308,11 @@ func (h *StepHandler) deleteStep(w http.ResponseWriter, workID, stepID uuid.UUID
 	w.WriteHeader(http.StatusNoContent)
 }
 
-func (h *StepHandler) requestUploadURL(w http.ResponseWriter, r *http.Request, workID, stepID uuid.UUID) {
+func (h *StepHandler) requestUploadURL(ctx context.Context, w http.ResponseWriter, r *http.Request, workID, stepID uuid.UUID) {
 	r.Body = http.MaxBytesReader(w, r.Body, 1<<20)
 
 	// Verify step exists
-	if _, err := h.stepRepo.FindByID(workID, stepID); err != nil {
+	if _, err := h.stepRepo.FindByID(ctx, workID, stepID); err != nil {
 		if errors.Is(err, repository.ErrNotFound) {
 			writeError(w, http.StatusNotFound, "step not found")
 			return

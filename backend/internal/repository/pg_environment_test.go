@@ -49,11 +49,11 @@ func TestPgEnvironmentRepository_StoreAndFind(t *testing.T) {
 		Humidity:    75.0,
 	}
 
-	if err := repo.Store(reading); err != nil {
+	if err := repo.Store(context.Background(), reading); err != nil {
 		t.Fatalf("Store failed: %v", err)
 	}
 
-	results, err := repo.FindBySensorID("test-sensor-001", 10)
+	results, err := repo.FindBySensorID(context.Background(), "test-sensor-001", 10)
 	if err != nil {
 		t.Fatalf("FindBySensorID failed: %v", err)
 	}
@@ -73,7 +73,7 @@ func TestPgEnvironmentRepository_StoreAndFind(t *testing.T) {
 func TestPgEnvironmentRepository_FindBySensorID_Empty(t *testing.T) {
 	repo := setupPgEnvRepo(t)
 
-	results, err := repo.FindBySensorID("test-nonexistent-sensor", 10)
+	results, err := repo.FindBySensorID(context.Background(), "test-nonexistent-sensor", 10)
 	if err != nil {
 		t.Fatalf("FindBySensorID failed: %v", err)
 	}

@@ -1,6 +1,8 @@
 package repository
 
 import (
+	"context"
+
 	"github.com/akaitigo/urushi-chronicle/internal/domain"
 	"github.com/google/uuid"
 )
@@ -8,18 +10,18 @@ import (
 // AlertThresholdRepository defines the interface for alert threshold persistence.
 type AlertThresholdRepository interface {
 	// Create stores a new alert threshold.
-	Create(threshold *domain.AlertThreshold) error
+	Create(ctx context.Context, threshold *domain.AlertThreshold) error
 	// FindByID retrieves an alert threshold by its ID.
-	FindByID(id uuid.UUID) (*domain.AlertThreshold, error)
+	FindByID(ctx context.Context, id uuid.UUID) (*domain.AlertThreshold, error)
 	// FindBySensorID retrieves all enabled alert thresholds for a given sensor.
-	FindBySensorID(sensorID string) ([]domain.AlertThreshold, error)
+	FindBySensorID(ctx context.Context, sensorID string) ([]domain.AlertThreshold, error)
 	// FindAllEnabled retrieves all enabled alert thresholds.
-	FindAllEnabled() ([]domain.AlertThreshold, error)
+	FindAllEnabled(ctx context.Context) ([]domain.AlertThreshold, error)
 	// Update replaces an existing alert threshold.
-	Update(threshold *domain.AlertThreshold) error
+	Update(ctx context.Context, threshold *domain.AlertThreshold) error
 	// FindAndUpdate atomically retrieves and updates a threshold under a single lock.
 	// The updateFn receives the current threshold and returns the updated version.
-	FindAndUpdate(id uuid.UUID, updateFn func(existing *domain.AlertThreshold) (*domain.AlertThreshold, error)) (*domain.AlertThreshold, error)
+	FindAndUpdate(ctx context.Context, id uuid.UUID, updateFn func(existing *domain.AlertThreshold) (*domain.AlertThreshold, error)) (*domain.AlertThreshold, error)
 	// Delete removes an alert threshold by its ID.
-	Delete(id uuid.UUID) error
+	Delete(ctx context.Context, id uuid.UUID) error
 }

@@ -19,8 +19,7 @@ func NewPgEnvironmentRepository(pool *pgxpool.Pool) *PgEnvironmentRepository {
 }
 
 // Store inserts a single environment reading into the TimescaleDB hypertable.
-func (r *PgEnvironmentRepository) Store(reading *domain.EnvironmentReading) error {
-	ctx := context.Background()
+func (r *PgEnvironmentRepository) Store(ctx context.Context, reading *domain.EnvironmentReading) error {
 	query := `
 		INSERT INTO environment_readings (time, sensor_id, location, temperature, humidity, work_id, process_step_id)
 		VALUES ($1, $2, $3, $4, $5, $6, $7)
@@ -43,8 +42,7 @@ func (r *PgEnvironmentRepository) Store(reading *domain.EnvironmentReading) erro
 
 // FindBySensorID retrieves readings for a given sensor, ordered by time descending.
 // If limit <= 0, a default limit of 1000 is applied to prevent unbounded queries.
-func (r *PgEnvironmentRepository) FindBySensorID(sensorID string, limit int) ([]domain.EnvironmentReading, error) {
-	ctx := context.Background()
+func (r *PgEnvironmentRepository) FindBySensorID(ctx context.Context, sensorID string, limit int) ([]domain.EnvironmentReading, error) {
 	if limit <= 0 {
 		limit = 1000
 	}

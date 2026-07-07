@@ -1,6 +1,7 @@
 package repository_test
 
 import (
+	"context"
 	"errors"
 	"testing"
 	"time"
@@ -28,11 +29,11 @@ func TestMemoryAlertThresholdRepository_CreateAndFindByID(t *testing.T) {
 	repo := repository.NewMemoryAlertThresholdRepository()
 	threshold := validAlertThreshold()
 
-	if err := repo.Create(threshold); err != nil {
+	if err := repo.Create(context.Background(), threshold); err != nil {
 		t.Fatalf("expected no error, got %v", err)
 	}
 
-	found, err := repo.FindByID(threshold.ID)
+	found, err := repo.FindByID(context.Background(), threshold.ID)
 	if err != nil {
 		t.Fatalf("expected no error, got %v", err)
 	}
@@ -44,7 +45,7 @@ func TestMemoryAlertThresholdRepository_CreateAndFindByID(t *testing.T) {
 func TestMemoryAlertThresholdRepository_FindByID_NotFound(t *testing.T) {
 	repo := repository.NewMemoryAlertThresholdRepository()
 
-	_, err := repo.FindByID(uuid.New())
+	_, err := repo.FindByID(context.Background(), uuid.New())
 	if !errors.Is(err, repository.ErrNotFound) {
 		t.Errorf("expected ErrNotFound, got %v", err)
 	}
@@ -66,12 +67,12 @@ func TestMemoryAlertThresholdRepository_FindBySensorID(t *testing.T) {
 	t3.Enabled = true
 
 	for _, th := range []*domain.AlertThreshold{t1, t2, t3} {
-		if err := repo.Create(th); err != nil {
+		if err := repo.Create(context.Background(), th); err != nil {
 			t.Fatalf("create failed: %v", err)
 		}
 	}
 
-	results, err := repo.FindBySensorID("esp32-001")
+	results, err := repo.FindBySensorID(context.Background(), "esp32-001")
 	if err != nil {
 		t.Fatalf("expected no error, got %v", err)
 	}
@@ -89,12 +90,12 @@ func TestMemoryAlertThresholdRepository_FindAllEnabled(t *testing.T) {
 	disabled.Enabled = false
 
 	for _, th := range []*domain.AlertThreshold{enabled, disabled} {
-		if err := repo.Create(th); err != nil {
+		if err := repo.Create(context.Background(), th); err != nil {
 			t.Fatalf("create failed: %v", err)
 		}
 	}
 
-	results, err := repo.FindAllEnabled()
+	results, err := repo.FindAllEnabled(context.Background())
 	if err != nil {
 		t.Fatalf("expected no error, got %v", err)
 	}
@@ -106,16 +107,16 @@ func TestMemoryAlertThresholdRepository_FindAllEnabled(t *testing.T) {
 func TestMemoryAlertThresholdRepository_Update(t *testing.T) {
 	repo := repository.NewMemoryAlertThresholdRepository()
 	threshold := validAlertThreshold()
-	if err := repo.Create(threshold); err != nil {
+	if err := repo.Create(context.Background(), threshold); err != nil {
 		t.Fatalf("create failed: %v", err)
 	}
 
 	threshold.TemperatureMax = 35.0
-	if err := repo.Update(threshold); err != nil {
+	if err := repo.Update(context.Background(), threshold); err != nil {
 		t.Fatalf("update failed: %v", err)
 	}
 
-	found, err := repo.FindByID(threshold.ID)
+	found, err := repo.FindByID(context.Background(), threshold.ID)
 	if err != nil {
 		t.Fatalf("find failed: %v", err)
 	}
@@ -128,7 +129,7 @@ func TestMemoryAlertThresholdRepository_Update_NotFound(t *testing.T) {
 	repo := repository.NewMemoryAlertThresholdRepository()
 	threshold := validAlertThreshold()
 
-	err := repo.Update(threshold)
+	err := repo.Update(context.Background(), threshold)
 	if !errors.Is(err, repository.ErrNotFound) {
 		t.Errorf("expected ErrNotFound, got %v", err)
 	}
@@ -137,15 +138,15 @@ func TestMemoryAlertThresholdRepository_Update_NotFound(t *testing.T) {
 func TestMemoryAlertThresholdRepository_Delete(t *testing.T) {
 	repo := repository.NewMemoryAlertThresholdRepository()
 	threshold := validAlertThreshold()
-	if err := repo.Create(threshold); err != nil {
+	if err := repo.Create(context.Background(), threshold); err != nil {
 		t.Fatalf("create failed: %v", err)
 	}
 
-	if err := repo.Delete(threshold.ID); err != nil {
+	if err := repo.Delete(context.Background(), threshold.ID); err != nil {
 		t.Fatalf("delete failed: %v", err)
 	}
 
-	_, err := repo.FindByID(threshold.ID)
+	_, err := repo.FindByID(context.Background(), threshold.ID)
 	if !errors.Is(err, repository.ErrNotFound) {
 		t.Errorf("expected ErrNotFound after delete, got %v", err)
 	}
@@ -154,7 +155,7 @@ func TestMemoryAlertThresholdRepository_Delete(t *testing.T) {
 func TestMemoryAlertThresholdRepository_Delete_NotFound(t *testing.T) {
 	repo := repository.NewMemoryAlertThresholdRepository()
 
-	err := repo.Delete(uuid.New())
+	err := repo.Delete(context.Background(), uuid.New())
 	if !errors.Is(err, repository.ErrNotFound) {
 		t.Errorf("expected ErrNotFound, got %v", err)
 	}

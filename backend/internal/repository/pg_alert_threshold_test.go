@@ -53,16 +53,16 @@ func TestPgAlertThresholdRepository_CRUD(t *testing.T) {
 
 	threshold := newPgTestThreshold("test-alert-sensor")
 	t.Cleanup(func() {
-		_ = repo.Delete(threshold.ID)
+		_ = repo.Delete(context.Background(), threshold.ID)
 	})
 
 	// Create
-	if err := repo.Create(threshold); err != nil {
+	if err := repo.Create(context.Background(), threshold); err != nil {
 		t.Fatalf("Create failed: %v", err)
 	}
 
 	// FindByID
-	found, err := repo.FindByID(threshold.ID)
+	found, err := repo.FindByID(context.Background(), threshold.ID)
 	if err != nil {
 		t.Fatalf("FindByID failed: %v", err)
 	}
@@ -71,7 +71,7 @@ func TestPgAlertThresholdRepository_CRUD(t *testing.T) {
 	}
 
 	// FindBySensorID
-	results, err := repo.FindBySensorID("test-alert-sensor")
+	results, err := repo.FindBySensorID(context.Background(), "test-alert-sensor")
 	if err != nil {
 		t.Fatalf("FindBySensorID failed: %v", err)
 	}
@@ -80,7 +80,7 @@ func TestPgAlertThresholdRepository_CRUD(t *testing.T) {
 	}
 
 	// FindAllEnabled
-	all, err := repo.FindAllEnabled()
+	all, err := repo.FindAllEnabled(context.Background())
 	if err != nil {
 		t.Fatalf("FindAllEnabled failed: %v", err)
 	}
@@ -91,10 +91,10 @@ func TestPgAlertThresholdRepository_CRUD(t *testing.T) {
 	// Update
 	found.TemperatureMax = 35.0
 	found.UpdatedAt = time.Now().UTC().Truncate(time.Microsecond)
-	if err := repo.Update(found); err != nil {
+	if err := repo.Update(context.Background(), found); err != nil {
 		t.Fatalf("Update failed: %v", err)
 	}
-	updated, err := repo.FindByID(threshold.ID)
+	updated, err := repo.FindByID(context.Background(), threshold.ID)
 	if err != nil {
 		t.Fatalf("FindByID after update failed: %v", err)
 	}
@@ -103,10 +103,10 @@ func TestPgAlertThresholdRepository_CRUD(t *testing.T) {
 	}
 
 	// Delete
-	if err := repo.Delete(threshold.ID); err != nil {
+	if err := repo.Delete(context.Background(), threshold.ID); err != nil {
 		t.Fatalf("Delete failed: %v", err)
 	}
-	_, err = repo.FindByID(threshold.ID)
+	_, err = repo.FindByID(context.Background(), threshold.ID)
 	if !errors.Is(err, repository.ErrNotFound) {
 		t.Errorf("expected ErrNotFound after delete, got %v", err)
 	}
@@ -117,14 +117,14 @@ func TestPgAlertThresholdRepository_FindAndUpdate(t *testing.T) {
 
 	threshold := newPgTestThreshold("test-fau-sensor")
 	t.Cleanup(func() {
-		_ = repo.Delete(threshold.ID)
+		_ = repo.Delete(context.Background(), threshold.ID)
 	})
 
-	if err := repo.Create(threshold); err != nil {
+	if err := repo.Create(context.Background(), threshold); err != nil {
 		t.Fatalf("Create failed: %v", err)
 	}
 
-	updated, err := repo.FindAndUpdate(threshold.ID, func(existing *domain.AlertThreshold) (*domain.AlertThreshold, error) {
+	updated, err := repo.FindAndUpdate(context.Background(), threshold.ID, func(existing *domain.AlertThreshold) (*domain.AlertThreshold, error) {
 		existing.HumidityMax = 90.0
 		existing.UpdatedAt = time.Now().UTC().Truncate(time.Microsecond)
 		return existing, nil
@@ -140,7 +140,7 @@ func TestPgAlertThresholdRepository_FindAndUpdate(t *testing.T) {
 func TestPgAlertThresholdRepository_FindByID_NotFound(t *testing.T) {
 	repo := setupPgAlertThresholdRepo(t)
 
-	_, err := repo.FindByID(uuid.New())
+	_, err := repo.FindByID(context.Background(), uuid.New())
 	if !errors.Is(err, repository.ErrNotFound) {
 		t.Errorf("expected ErrNotFound, got %v", err)
 	}

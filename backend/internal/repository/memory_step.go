@@ -1,6 +1,7 @@
 package repository
 
 import (
+	"context"
 	"sort"
 	"sync"
 
@@ -22,7 +23,7 @@ func NewMemoryStepRepository() *MemoryStepRepository {
 }
 
 // Create stores a new process step. Returns ErrConflict if step_order is already taken for the work.
-func (r *MemoryStepRepository) Create(step *domain.ProcessStep) error {
+func (r *MemoryStepRepository) Create(_ context.Context, step *domain.ProcessStep) error {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 
@@ -45,7 +46,7 @@ func (r *MemoryStepRepository) Create(step *domain.ProcessStep) error {
 }
 
 // FindByID retrieves a single process step by work ID and step ID.
-func (r *MemoryStepRepository) FindByID(workID, stepID uuid.UUID) (*domain.ProcessStep, error) {
+func (r *MemoryStepRepository) FindByID(_ context.Context, workID, stepID uuid.UUID) (*domain.ProcessStep, error) {
 	r.mu.RLock()
 	defer r.mu.RUnlock()
 
@@ -62,7 +63,7 @@ func (r *MemoryStepRepository) FindByID(workID, stepID uuid.UUID) (*domain.Proce
 }
 
 // FindByWorkID retrieves all process steps for a work, ordered by step_order.
-func (r *MemoryStepRepository) FindByWorkID(workID uuid.UUID) ([]domain.ProcessStep, error) {
+func (r *MemoryStepRepository) FindByWorkID(_ context.Context, workID uuid.UUID) ([]domain.ProcessStep, error) {
 	r.mu.RLock()
 	defer r.mu.RUnlock()
 
@@ -82,7 +83,7 @@ func (r *MemoryStepRepository) FindByWorkID(workID uuid.UUID) ([]domain.ProcessS
 }
 
 // Update replaces an existing process step. Returns ErrNotFound if it does not exist.
-func (r *MemoryStepRepository) Update(step *domain.ProcessStep) error {
+func (r *MemoryStepRepository) Update(_ context.Context, step *domain.ProcessStep) error {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 
@@ -107,7 +108,7 @@ func (r *MemoryStepRepository) Update(step *domain.ProcessStep) error {
 }
 
 // Delete removes a process step. Returns ErrNotFound if it does not exist.
-func (r *MemoryStepRepository) Delete(workID, stepID uuid.UUID) error {
+func (r *MemoryStepRepository) Delete(_ context.Context, workID, stepID uuid.UUID) error {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 
@@ -124,7 +125,7 @@ func (r *MemoryStepRepository) Delete(workID, stepID uuid.UUID) error {
 
 // DeleteByWorkID removes all process steps associated with a given work.
 // Returns nil if the work has no steps (idempotent).
-func (r *MemoryStepRepository) DeleteByWorkID(workID uuid.UUID) error {
+func (r *MemoryStepRepository) DeleteByWorkID(_ context.Context, workID uuid.UUID) error {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 
