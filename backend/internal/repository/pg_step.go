@@ -38,7 +38,8 @@ func (r *PgStepRepository) Create(step *domain.ProcessStep) error {
 			 materials_used, notes, started_at, completed_at, created_at, updated_at)
 		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
 	`
-	_, err = r.pool.Exec(ctx, query,
+	_, err = r.pool.Exec(
+		ctx, query,
 		step.ID, step.WorkID, step.Name, step.Description, step.StepOrder, step.Category,
 		materialsJSON, step.Notes, step.StartedAt, step.CompletedAt, step.CreatedAt, step.UpdatedAt,
 	)
@@ -139,7 +140,8 @@ func (r *PgStepRepository) Update(step *domain.ProcessStep) error {
 		    materials_used = $7, notes = $8, started_at = $9, completed_at = $10, updated_at = $11
 		WHERE id = $1 AND work_id = $2
 	`
-	tag, err := r.pool.Exec(ctx, query,
+	tag, err := r.pool.Exec(
+		ctx, query,
 		step.ID, step.WorkID, step.Name, step.Description, step.StepOrder, step.Category,
 		materialsJSON, step.Notes, step.StartedAt, step.CompletedAt, step.UpdatedAt,
 	)
