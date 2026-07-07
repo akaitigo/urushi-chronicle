@@ -210,6 +210,48 @@ func TestNewWebhookNotifier_RejectsInvalidScheme(t *testing.T) {
 	}
 }
 
+func TestNewWebhookNotifier_RejectsHTTPScheme(t *testing.T) {
+	// Plain http is no longer permitted; only https is allowed.
+	_, err := alert.NewWebhookNotifierWithResolver("http://hooks.example.com/alert", nil, publicResolver())
+	if err == nil {
+		t.Fatal("expected error for http scheme, got nil")
+	}
+	if !strings.Contains(err.Error(), "only https is permitted") {
+		t.Errorf("expected error to require https, got: %v", err)
+	}
+}
+
+func TestNewWebhookNotifier_RejectsMetadataEndpoint(t *testing.T) {
+	// The GCP/AWS metadata endpoint is link-local and must be blocked.
+	tests := []struct {
+		name string
+		ip   string
+	}{
+		{name: "ipv4 metadata 169.254.169.254", ip: "169.254.169.254"},
+		{name: "ipv6 loopback", ip: "::1"},
+		{name: "unspecified 0.0.0.0", ip: "0.0.0.0"},
+		{name: "ipv6 link-local", ip: "fe80::1"},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			resolver := &mockResolver{ips: []string{tt.ip}}
+			_, err := alert.NewWebhookNotifierWithResolver("https://metadata.example.com/hook", nil, resolver)
+			if err == nil {
+				t.Fatalf("expected error for blocked IP %s, got nil", tt.ip)
+			}
+		})
+	}
+}
+
+func TestNewWebhookNotifier_RejectsUnresolvableHost(t *testing.T) {
+	resolver := &mockResolver{ips: []string{}}
+	_, err := alert.NewWebhookNotifierWithResolver("https://nowhere.example.com/hook", nil, resolver)
+	if err == nil {
+		t.Fatal("expected error when host resolves to no addresses")
+	}
+}
+
 func TestNewWebhookNotifier_RejectsPrivateIP(t *testing.T) {
 	tests := []struct {
 		name string

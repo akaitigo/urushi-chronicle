@@ -4,6 +4,7 @@ package alert
 import (
 	"bytes"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"net"
 	"net/http"
@@ -57,7 +58,8 @@ func (defaultResolver) LookupHost(host string) ([]string, error) {
 
 // NewWebhookNotifier creates a new WebhookNotifier.
 // If webhookURL is empty, notifications are silently dropped (no-op mode).
-// Returns an error if the URL scheme is not http/https or if the host resolves to a private IP.
+// Returns an error if the URL scheme is not https or if the host resolves to a
+// private, loopback, link-local, or cloud-metadata IP address.
 func NewWebhookNotifier(webhookURL string, client HTTPClient) (*WebhookNotifier, error) {
 	return NewWebhookNotifierWithResolver(webhookURL, client, defaultResolver{})
 }
@@ -66,7 +68,14 @@ func NewWebhookNotifier(webhookURL string, client HTTPClient) (*WebhookNotifier,
 // Use this in tests to avoid actual DNS lookups.
 func NewWebhookNotifierWithResolver(webhookURL string, client HTTPClient, resolver DNSResolver) (*WebhookNotifier, error) {
 	if client == nil {
-		client = &http.Client{Timeout: 10 * time.Second}
+		// Default client blocks redirects: a webhook has no legitimate reason to
+		// redirect, and following one would bypass the SSRF host validation below.
+		client = &http.Client{
+			Timeout: 10 * time.Second,
+			CheckRedirect: func(_ *http.Request, _ []*http.Request) error {
+				return errors.New("redirects are not allowed for webhook requests")
+			},
+		}
 	}
 	if webhookURL != "" {
 		if err := validateWebhookURL(webhookURL, resolver); err != nil {
@@ -79,43 +88,56 @@ func NewWebhookNotifierWithResolver(webhookURL string, client HTTPClient, resolv
 	}, nil
 }
 
-// validateWebhookURL checks that the URL uses http or https scheme
-// and does not resolve to a private/loopback IP address.
+// validateWebhookURL enforces an allow-list policy for the webhook URL:
+// the scheme must be https, and the host must not resolve to any non-public
+// address (private, loopback, link-local, unspecified, or multicast). This
+// blocks SSRF against internal services and the cloud metadata endpoint
+// (169.254.169.254, which is link-local).
 func validateWebhookURL(rawURL string, resolver DNSResolver) error {
 	parsed, err := url.Parse(rawURL)
 	if err != nil {
 		return fmt.Errorf("failed to parse URL: %w", err)
 	}
 
-	// Only allow http and https schemes.
-	if parsed.Scheme != "http" && parsed.Scheme != "https" {
-		return fmt.Errorf("scheme %q is not allowed; only http and https are permitted", parsed.Scheme)
+	// Only allow the https scheme.
+	if parsed.Scheme != "https" {
+		return fmt.Errorf("scheme %q is not allowed; only https is permitted", parsed.Scheme)
 	}
 
-	// Resolve host to IP addresses and reject private/loopback ranges.
+	// Resolve host to IP addresses and reject any non-public range.
 	hostname := parsed.Hostname()
 	ips, err := resolver.LookupHost(hostname)
 	if err != nil {
 		return fmt.Errorf("failed to resolve host %q: %w", hostname, err)
 	}
+	if len(ips) == 0 {
+		return fmt.Errorf("host %q did not resolve to any IP address", hostname)
+	}
 
 	for _, ipStr := range ips {
 		ip := net.ParseIP(ipStr)
 		if ip == nil {
-			continue
+			return fmt.Errorf("host %q resolved to an unparseable address %q", hostname, ipStr)
 		}
-		if isPrivateIP(ip) {
-			return fmt.Errorf("host %q resolves to private IP %s", hostname, ipStr)
+		if isBlockedIP(ip) {
+			return fmt.Errorf("host %q resolves to blocked private IP %s", hostname, ipStr)
 		}
 	}
 
 	return nil
 }
 
-// isPrivateIP checks whether an IP address is in a private, loopback,
-// or link-local range.
-func isPrivateIP(ip net.IP) bool {
-	return ip.IsLoopback() || ip.IsPrivate() || ip.IsLinkLocalUnicast() || ip.IsLinkLocalMulticast()
+// isBlockedIP reports whether an IP address is outside the public unicast range
+// and therefore must not be targeted by outbound webhook requests. Link-local
+// covers the cloud metadata endpoint (169.254.169.254 and fd00:ec2::254).
+func isBlockedIP(ip net.IP) bool {
+	return ip.IsLoopback() ||
+		ip.IsPrivate() ||
+		ip.IsLinkLocalUnicast() ||
+		ip.IsLinkLocalMulticast() ||
+		ip.IsInterfaceLocalMulticast() ||
+		ip.IsMulticast() ||
+		ip.IsUnspecified()
 }
 
 // Notify sends an alert notification to the configured webhook URL.

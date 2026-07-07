@@ -19,7 +19,7 @@ import (
 func setupTest() (*handler.StepHandler, uuid.UUID) {
 	workRepo := repository.NewMemoryWorkRepository()
 	stepRepo := repository.NewMemoryStepRepository()
-	uploader := storage.NewGCSUploader("test-bucket")
+	uploader := storage.NewMockUploader("test-bucket")
 
 	workID := uuid.MustParse("11111111-1111-1111-1111-111111111111")
 	workRepo.Seed(&domain.Work{
