@@ -3,6 +3,7 @@
 package monitor
 
 import (
+	"context"
 	"log"
 
 	"github.com/akaitigo/urushi-chronicle/internal/alert"
@@ -36,20 +37,20 @@ func NewService(
 // ProcessReading stores a reading and evaluates it against all applicable alert thresholds.
 // If any threshold is exceeded, an alert notification is sent.
 // Storage errors are returned immediately. Alert notification errors are logged but do not
-// prevent the reading from being stored.
-func (s *Service) ProcessReading(reading domain.EnvironmentReading) error {
+// prevent the reading from being stored. The context is propagated to all DB operations.
+func (s *Service) ProcessReading(ctx context.Context, reading domain.EnvironmentReading) error {
 	// Validate the reading
 	if err := reading.Validate(); err != nil {
 		return err
 	}
 
 	// Store the reading
-	if err := s.envRepo.Store(&reading); err != nil {
+	if err := s.envRepo.Store(ctx, &reading); err != nil {
 		return err
 	}
 
 	// Look up applicable thresholds for this sensor
-	thresholds, err := s.thresholdRepo.FindBySensorID(reading.SensorID)
+	thresholds, err := s.thresholdRepo.FindBySensorID(ctx, reading.SensorID)
 	if err != nil {
 		s.logger.Printf("warning: failed to lookup thresholds for sensor %s: %v", reading.SensorID, err)
 		return nil

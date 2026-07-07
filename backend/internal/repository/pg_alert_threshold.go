@@ -22,8 +22,7 @@ func NewPgAlertThresholdRepository(pool *pgxpool.Pool) *PgAlertThresholdReposito
 }
 
 // Create stores a new alert threshold.
-func (r *PgAlertThresholdRepository) Create(threshold *domain.AlertThreshold) error {
-	ctx := context.Background()
+func (r *PgAlertThresholdRepository) Create(ctx context.Context, threshold *domain.AlertThreshold) error {
 	query := `
 		INSERT INTO alert_thresholds
 			(id, sensor_id, temperature_min, temperature_max, humidity_min, humidity_max,
@@ -44,8 +43,7 @@ func (r *PgAlertThresholdRepository) Create(threshold *domain.AlertThreshold) er
 }
 
 // FindByID retrieves an alert threshold by its ID.
-func (r *PgAlertThresholdRepository) FindByID(id uuid.UUID) (*domain.AlertThreshold, error) {
-	ctx := context.Background()
+func (r *PgAlertThresholdRepository) FindByID(ctx context.Context, id uuid.UUID) (*domain.AlertThreshold, error) {
 	query := `
 		SELECT id, sensor_id, temperature_min, temperature_max, humidity_min, humidity_max,
 		       enabled, created_at, updated_at
@@ -69,8 +67,7 @@ func (r *PgAlertThresholdRepository) FindByID(id uuid.UUID) (*domain.AlertThresh
 }
 
 // FindBySensorID retrieves all enabled alert thresholds for a given sensor.
-func (r *PgAlertThresholdRepository) FindBySensorID(sensorID string) ([]domain.AlertThreshold, error) {
-	ctx := context.Background()
+func (r *PgAlertThresholdRepository) FindBySensorID(ctx context.Context, sensorID string) ([]domain.AlertThreshold, error) {
 	query := `
 		SELECT id, sensor_id, temperature_min, temperature_max, humidity_min, humidity_max,
 		       enabled, created_at, updated_at
@@ -106,8 +103,7 @@ func (r *PgAlertThresholdRepository) FindBySensorID(sensorID string) ([]domain.A
 }
 
 // FindAllEnabled retrieves all enabled alert thresholds.
-func (r *PgAlertThresholdRepository) FindAllEnabled() ([]domain.AlertThreshold, error) {
-	ctx := context.Background()
+func (r *PgAlertThresholdRepository) FindAllEnabled(ctx context.Context) ([]domain.AlertThreshold, error) {
 	query := `
 		SELECT id, sensor_id, temperature_min, temperature_max, humidity_min, humidity_max,
 		       enabled, created_at, updated_at
@@ -143,8 +139,7 @@ func (r *PgAlertThresholdRepository) FindAllEnabled() ([]domain.AlertThreshold, 
 }
 
 // Update replaces an existing alert threshold.
-func (r *PgAlertThresholdRepository) Update(threshold *domain.AlertThreshold) error {
-	ctx := context.Background()
+func (r *PgAlertThresholdRepository) Update(ctx context.Context, threshold *domain.AlertThreshold) error {
 	query := `
 		UPDATE alert_thresholds
 		SET sensor_id = $2, temperature_min = $3, temperature_max = $4,
@@ -168,9 +163,7 @@ func (r *PgAlertThresholdRepository) Update(threshold *domain.AlertThreshold) er
 }
 
 // FindAndUpdate atomically retrieves and updates a threshold using a database transaction.
-func (r *PgAlertThresholdRepository) FindAndUpdate(id uuid.UUID, updateFn func(existing *domain.AlertThreshold) (*domain.AlertThreshold, error)) (*domain.AlertThreshold, error) {
-	ctx := context.Background()
-
+func (r *PgAlertThresholdRepository) FindAndUpdate(ctx context.Context, id uuid.UUID, updateFn func(existing *domain.AlertThreshold) (*domain.AlertThreshold, error)) (*domain.AlertThreshold, error) {
 	tx, err := r.pool.Begin(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("failed to begin transaction: %w", err)
@@ -231,8 +224,7 @@ func (r *PgAlertThresholdRepository) FindAndUpdate(id uuid.UUID, updateFn func(e
 }
 
 // Delete removes an alert threshold by its ID.
-func (r *PgAlertThresholdRepository) Delete(id uuid.UUID) error {
-	ctx := context.Background()
+func (r *PgAlertThresholdRepository) Delete(ctx context.Context, id uuid.UUID) error {
 	query := `DELETE FROM alert_thresholds WHERE id = $1`
 	tag, err := r.pool.Exec(ctx, query, id)
 	if err != nil {

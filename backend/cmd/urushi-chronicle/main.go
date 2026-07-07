@@ -174,35 +174,43 @@ func main() {
 		IdleTimeout:  120 * time.Second,
 	}
 
-	// Channel to receive OS signals for graceful shutdown
-	sigCh := make(chan os.Signal, 1)
-	signal.Notify(sigCh, syscall.SIGTERM, syscall.SIGINT)
+	// Cancel the context on SIGINT/SIGTERM (e.g. Cloud Run sends SIGTERM on
+	// shutdown) so in-flight requests are drained before the process exits.
+	ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
+	defer stop()
 
-	// Channel to receive server errors
-	errCh := make(chan error, 1)
+	const shutdownTimeout = 30 * time.Second
+	if err := runServer(ctx, srv, shutdownTimeout, logger); err != nil {
+		logger.Fatalf("%v", err)
+	}
+}
 
+// runServer starts srv in a background goroutine and blocks until ctx is
+// cancelled (e.g. via SIGINT/SIGTERM) or the server fails to serve. It then
+// performs a graceful shutdown bounded by shutdownTimeout, allowing in-flight
+// requests to complete before returning.
+func runServer(ctx context.Context, srv *http.Server, shutdownTimeout time.Duration, logger *log.Logger) error {
+	serveErr := make(chan error, 1)
 	go func() {
-		logger.Printf("API server starting on :%s", port)
+		logger.Printf("API server starting on %s", srv.Addr)
 		if err := srv.ListenAndServe(); err != nil && !errors.Is(err, http.ErrServerClosed) {
-			errCh <- err
+			serveErr <- err
 		}
 	}()
 
-	// Wait for shutdown signal or server error
 	select {
-	case sig := <-sigCh:
-		logger.Printf("received signal %v, initiating graceful shutdown...", sig)
-	case err := <-errCh:
-		logger.Printf("server error: %v, initiating shutdown...", err)
+	case <-ctx.Done():
+		logger.Println("shutdown signal received, draining in-flight requests...")
+	case err := <-serveErr:
+		return fmt.Errorf("server failed: %w", err)
 	}
 
-	// Graceful shutdown with 30-second timeout
-	const shutdownTimeout = 30 * time.Second
-	shutdownCtx, shutdownCancel := context.WithTimeout(context.Background(), shutdownTimeout)
-	defer shutdownCancel()
+	shutdownCtx, cancel := context.WithTimeout(context.Background(), shutdownTimeout)
+	defer cancel()
 
 	if err := srv.Shutdown(shutdownCtx); err != nil {
-		logger.Fatalf("graceful shutdown failed: %v", err)
+		return fmt.Errorf("graceful shutdown failed: %w", err)
 	}
 	logger.Println("server shut down gracefully")
+	return nil
 }

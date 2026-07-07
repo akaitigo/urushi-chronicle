@@ -1,6 +1,7 @@
 package handler
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
 	"net/http"
@@ -106,7 +107,7 @@ func (h *EnvironmentHandler) handleThresholds(w http.ResponseWriter, r *http.Req
 	case http.MethodPost:
 		h.createThreshold(w, r)
 	case http.MethodGet:
-		h.listThresholds(w)
+		h.listThresholds(r.Context(), w)
 	default:
 		w.Header().Set("Allow", "GET, POST")
 		writeError(w, http.StatusMethodNotAllowed, "method not allowed")
@@ -120,13 +121,15 @@ func (h *EnvironmentHandler) handleThresholdByID(w http.ResponseWriter, r *http.
 		return
 	}
 
+	ctx := r.Context()
+
 	switch r.Method {
 	case http.MethodGet:
-		h.getThreshold(w, id)
+		h.getThreshold(ctx, w, id)
 	case http.MethodPut:
-		h.updateThreshold(w, r, id)
+		h.updateThreshold(ctx, w, r, id)
 	case http.MethodDelete:
-		h.deleteThreshold(w, id)
+		h.deleteThreshold(ctx, w, id)
 	default:
 		w.Header().Set("Allow", "GET, PUT, DELETE")
 		writeError(w, http.StatusMethodNotAllowed, "method not allowed")
@@ -178,7 +181,7 @@ func (h *EnvironmentHandler) ingestReading(w http.ResponseWriter, r *http.Reques
 		Humidity:    *req.Humidity,
 	}
 
-	if err := h.monitorSvc.ProcessReading(reading); err != nil {
+	if err := h.monitorSvc.ProcessReading(r.Context(), reading); err != nil {
 		writeValidationErrors(w, []string{err.Error()})
 		return
 	}
@@ -203,7 +206,7 @@ func (h *EnvironmentHandler) queryReadings(w http.ResponseWriter, r *http.Reques
 		limit = parsed
 	}
 
-	readings, err := h.envRepo.FindBySensorID(sensorID, limit)
+	readings, err := h.envRepo.FindBySensorID(r.Context(), sensorID, limit)
 	if err != nil {
 		writeError(w, http.StatusInternalServerError, "failed to query readings")
 		return
@@ -247,7 +250,7 @@ func (h *EnvironmentHandler) createThreshold(w http.ResponseWriter, r *http.Requ
 		return
 	}
 
-	if err := h.thresholdRepo.Create(threshold); err != nil {
+	if err := h.thresholdRepo.Create(r.Context(), threshold); err != nil {
 		writeError(w, http.StatusInternalServerError, "failed to create threshold")
 		return
 	}
@@ -255,8 +258,8 @@ func (h *EnvironmentHandler) createThreshold(w http.ResponseWriter, r *http.Requ
 	writeJSON(w, http.StatusCreated, threshold)
 }
 
-func (h *EnvironmentHandler) listThresholds(w http.ResponseWriter) {
-	thresholds, err := h.thresholdRepo.FindAllEnabled()
+func (h *EnvironmentHandler) listThresholds(ctx context.Context, w http.ResponseWriter) {
+	thresholds, err := h.thresholdRepo.FindAllEnabled(ctx)
 	if err != nil {
 		writeError(w, http.StatusInternalServerError, "failed to list thresholds")
 		return
@@ -268,8 +271,8 @@ func (h *EnvironmentHandler) listThresholds(w http.ResponseWriter) {
 	})
 }
 
-func (h *EnvironmentHandler) getThreshold(w http.ResponseWriter, id uuid.UUID) {
-	threshold, err := h.thresholdRepo.FindByID(id)
+func (h *EnvironmentHandler) getThreshold(ctx context.Context, w http.ResponseWriter, id uuid.UUID) {
+	threshold, err := h.thresholdRepo.FindByID(ctx, id)
 	if err != nil {
 		if errors.Is(err, repository.ErrNotFound) {
 			writeError(w, http.StatusNotFound, "threshold not found")
@@ -281,7 +284,7 @@ func (h *EnvironmentHandler) getThreshold(w http.ResponseWriter, id uuid.UUID) {
 	writeJSON(w, http.StatusOK, threshold)
 }
 
-func (h *EnvironmentHandler) updateThreshold(w http.ResponseWriter, r *http.Request, id uuid.UUID) {
+func (h *EnvironmentHandler) updateThreshold(ctx context.Context, w http.ResponseWriter, r *http.Request, id uuid.UUID) {
 	r.Body = http.MaxBytesReader(w, r.Body, 1<<20)
 
 	var req updateThresholdRequest
@@ -293,7 +296,7 @@ func (h *EnvironmentHandler) updateThreshold(w http.ResponseWriter, r *http.Requ
 	// Use FindAndUpdate to atomically read-modify-write under a single lock,
 	// preventing race conditions on concurrent updates.
 	// Pointer fields (nil = not provided, non-nil = explicit value including zero).
-	updated, err := h.thresholdRepo.FindAndUpdate(id, func(existing *domain.AlertThreshold) (*domain.AlertThreshold, error) {
+	updated, err := h.thresholdRepo.FindAndUpdate(ctx, id, func(existing *domain.AlertThreshold) (*domain.AlertThreshold, error) {
 		if req.SensorID != "" {
 			existing.SensorID = req.SensorID
 		}
@@ -333,8 +336,8 @@ func (h *EnvironmentHandler) updateThreshold(w http.ResponseWriter, r *http.Requ
 	writeJSON(w, http.StatusOK, updated)
 }
 
-func (h *EnvironmentHandler) deleteThreshold(w http.ResponseWriter, id uuid.UUID) {
-	if err := h.thresholdRepo.Delete(id); err != nil {
+func (h *EnvironmentHandler) deleteThreshold(ctx context.Context, w http.ResponseWriter, id uuid.UUID) {
+	if err := h.thresholdRepo.Delete(ctx, id); err != nil {
 		if errors.Is(err, repository.ErrNotFound) {
 			writeError(w, http.StatusNotFound, "threshold not found")
 			return

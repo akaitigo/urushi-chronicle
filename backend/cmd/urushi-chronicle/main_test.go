@@ -1,7 +1,12 @@
 package main
 
 import (
+	"context"
+	"io"
+	"log"
+	"net/http"
 	"testing"
+	"time"
 )
 
 func TestPackageImports(t *testing.T) {
@@ -9,6 +14,47 @@ func TestPackageImports(t *testing.T) {
 	// The actual main() starts an HTTP server and blocks,
 	// so we only validate that the package builds successfully.
 	t.Log("main package compiles OK")
+}
+
+func TestRunServer_ShutsDownOnContextCancel(t *testing.T) {
+	srv := &http.Server{
+		Addr:    "127.0.0.1:0",
+		Handler: http.NewServeMux(),
+	}
+	ctx, cancel := context.WithCancel(context.Background())
+	logger := log.New(io.Discard, "", 0)
+
+	done := make(chan error, 1)
+	go func() {
+		done <- runServer(ctx, srv, 5*time.Second, logger)
+	}()
+
+	// Give the server a moment to start listening, then request shutdown.
+	time.Sleep(100 * time.Millisecond)
+	cancel()
+
+	select {
+	case err := <-done:
+		if err != nil {
+			t.Fatalf("expected clean graceful shutdown, got: %v", err)
+		}
+	case <-time.After(5 * time.Second):
+		t.Fatal("runServer did not return after context cancellation")
+	}
+}
+
+func TestRunServer_ReturnsServeError(t *testing.T) {
+	// Port 99999 is out of the valid range, so ListenAndServe fails immediately.
+	srv := &http.Server{
+		Addr:    "127.0.0.1:99999",
+		Handler: http.NewServeMux(),
+	}
+	logger := log.New(io.Discard, "", 0)
+
+	err := runServer(context.Background(), srv, time.Second, logger)
+	if err == nil {
+		t.Fatal("expected an error when the server fails to listen")
+	}
 }
 
 func TestValidateStoreType(t *testing.T) {

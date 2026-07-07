@@ -1,6 +1,7 @@
 package handler
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
 	"net/http"
@@ -19,13 +20,27 @@ type WorkHandler struct {
 }
 
 // NewWorkHandler creates a new WorkHandler with the given repositories.
-// stepRepo is used to cascade-delete related steps when a work is deleted.
+// stepRepo is used to cascade-delete related steps when a work is deleted
+// (only for backends that do not cascade at the database level).
 func NewWorkHandler(workRepo repository.WorkRepository, stepRepo ...repository.StepRepository) *WorkHandler {
 	h := &WorkHandler{workRepo: workRepo}
 	if len(stepRepo) > 0 {
 		h.stepRepo = stepRepo[0]
 	}
 	return h
+}
+
+// cascadingWorkDeleter is implemented by WorkRepository backends that delete
+// related process steps automatically (e.g., PostgreSQL ON DELETE CASCADE).
+type cascadingWorkDeleter interface {
+	CascadesStepDeletion() bool
+}
+
+// workRepoCascadesSteps reports whether the repository deletes related steps
+// on its own, so the handler can skip an explicit, redundant step deletion.
+func workRepoCascadesSteps(repo repository.WorkRepository) bool {
+	cd, ok := repo.(cascadingWorkDeleter)
+	return ok && cd.CascadesStepDeletion()
 }
 
 // createWorkRequest is the JSON body for POST /api/v1/works.
@@ -58,13 +73,15 @@ func (h *WorkHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	path := strings.TrimPrefix(r.URL.Path, prefix)
 	path = strings.TrimPrefix(path, "/")
 
+	ctx := r.Context()
+
 	// Collection endpoints (no ID segment)
 	if path == "" {
 		switch r.Method {
 		case http.MethodGet:
-			h.listWorks(w)
+			h.listWorks(ctx, w)
 		case http.MethodPost:
-			h.createWork(w, r)
+			h.createWork(ctx, w, r)
 		default:
 			w.Header().Set("Allow", "GET, POST")
 			writeError(w, http.StatusMethodNotAllowed, "method not allowed")
@@ -87,19 +104,19 @@ func (h *WorkHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	// Single-resource endpoints
 	switch r.Method {
 	case http.MethodGet:
-		h.getWork(w, id)
+		h.getWork(ctx, w, id)
 	case http.MethodPut:
-		h.updateWork(w, r, id)
+		h.updateWork(ctx, w, r, id)
 	case http.MethodDelete:
-		h.deleteWork(w, id)
+		h.deleteWork(ctx, w, id)
 	default:
 		w.Header().Set("Allow", "GET, PUT, DELETE")
 		writeError(w, http.StatusMethodNotAllowed, "method not allowed")
 	}
 }
 
-func (h *WorkHandler) listWorks(w http.ResponseWriter) {
-	works, err := h.workRepo.FindAll()
+func (h *WorkHandler) listWorks(ctx context.Context, w http.ResponseWriter) {
+	works, err := h.workRepo.FindAll(ctx)
 	if err != nil {
 		writeError(w, http.StatusInternalServerError, "failed to list works")
 		return
@@ -111,8 +128,8 @@ func (h *WorkHandler) listWorks(w http.ResponseWriter) {
 	})
 }
 
-func (h *WorkHandler) getWork(w http.ResponseWriter, id uuid.UUID) {
-	work, err := h.workRepo.FindByID(id)
+func (h *WorkHandler) getWork(ctx context.Context, w http.ResponseWriter, id uuid.UUID) {
+	work, err := h.workRepo.FindByID(ctx, id)
 	if err != nil {
 		if errors.Is(err, repository.ErrNotFound) {
 			writeError(w, http.StatusNotFound, "work not found")
@@ -125,7 +142,7 @@ func (h *WorkHandler) getWork(w http.ResponseWriter, id uuid.UUID) {
 	writeJSON(w, http.StatusOK, work)
 }
 
-func (h *WorkHandler) createWork(w http.ResponseWriter, r *http.Request) {
+func (h *WorkHandler) createWork(ctx context.Context, w http.ResponseWriter, r *http.Request) {
 	r.Body = http.MaxBytesReader(w, r.Body, 1<<20)
 
 	var req createWorkRequest
@@ -152,7 +169,7 @@ func (h *WorkHandler) createWork(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if err := h.workRepo.Create(work); err != nil {
+	if err := h.workRepo.Create(ctx, work); err != nil {
 		writeError(w, http.StatusInternalServerError, "failed to create work")
 		return
 	}
@@ -160,10 +177,10 @@ func (h *WorkHandler) createWork(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusCreated, work)
 }
 
-func (h *WorkHandler) updateWork(w http.ResponseWriter, r *http.Request, id uuid.UUID) {
+func (h *WorkHandler) updateWork(ctx context.Context, w http.ResponseWriter, r *http.Request, id uuid.UUID) {
 	r.Body = http.MaxBytesReader(w, r.Body, 1<<20)
 
-	existing, err := h.workRepo.FindByID(id)
+	existing, err := h.workRepo.FindByID(ctx, id)
 	if err != nil {
 		if errors.Is(err, repository.ErrNotFound) {
 			writeError(w, http.StatusNotFound, "work not found")
@@ -211,7 +228,7 @@ func (h *WorkHandler) updateWork(w http.ResponseWriter, r *http.Request, id uuid
 		return
 	}
 
-	if err := h.workRepo.Update(existing); err != nil {
+	if err := h.workRepo.Update(ctx, existing); err != nil {
 		writeError(w, http.StatusInternalServerError, "failed to update work")
 		return
 	}
@@ -219,9 +236,9 @@ func (h *WorkHandler) updateWork(w http.ResponseWriter, r *http.Request, id uuid
 	writeJSON(w, http.StatusOK, existing)
 }
 
-func (h *WorkHandler) deleteWork(w http.ResponseWriter, id uuid.UUID) {
+func (h *WorkHandler) deleteWork(ctx context.Context, w http.ResponseWriter, id uuid.UUID) {
 	// Verify work exists before attempting deletion.
-	if _, err := h.workRepo.FindByID(id); err != nil {
+	if _, err := h.workRepo.FindByID(ctx, id); err != nil {
 		if errors.Is(err, repository.ErrNotFound) {
 			writeError(w, http.StatusNotFound, "work not found")
 			return
@@ -230,19 +247,18 @@ func (h *WorkHandler) deleteWork(w http.ResponseWriter, id uuid.UUID) {
 		return
 	}
 
-	// Cascade: delete all associated process steps BEFORE the work itself.
-	// This prevents orphaned steps if the work deletion succeeds but step
-	// deletion would fail, and ensures correct ordering in in-memory mode
-	// (PostgreSQL handles this via ON DELETE CASCADE, but application-level
-	// ordering must also be correct for the in-memory store).
-	if h.stepRepo != nil {
-		if err := h.stepRepo.DeleteByWorkID(id); err != nil {
+	// Cascade: delete associated process steps before the work itself. This is
+	// skipped when the work repository cascades at the database level (PostgreSQL
+	// ON DELETE CASCADE), avoiding a redundant double delete. The in-memory store
+	// does not cascade, so its steps are removed here explicitly.
+	if h.stepRepo != nil && !workRepoCascadesSteps(h.workRepo) {
+		if err := h.stepRepo.DeleteByWorkID(ctx, id); err != nil {
 			writeError(w, http.StatusInternalServerError, "failed to delete associated steps")
 			return
 		}
 	}
 
-	if err := h.workRepo.Delete(id); err != nil {
+	if err := h.workRepo.Delete(ctx, id); err != nil {
 		if errors.Is(err, repository.ErrNotFound) {
 			writeError(w, http.StatusNotFound, "work not found")
 			return

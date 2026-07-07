@@ -1,6 +1,7 @@
 package repository_test
 
 import (
+	"context"
 	"testing"
 	"time"
 
@@ -18,11 +19,11 @@ func TestMemoryEnvironmentRepository_Store(t *testing.T) {
 		Humidity:    75.0,
 	}
 
-	if err := repo.Store(reading); err != nil {
+	if err := repo.Store(context.Background(), reading); err != nil {
 		t.Fatalf("expected no error, got %v", err)
 	}
 
-	readings, err := repo.FindBySensorID("esp32-001", 10)
+	readings, err := repo.FindBySensorID(context.Background(), "esp32-001", 10)
 	if err != nil {
 		t.Fatalf("expected no error, got %v", err)
 	}
@@ -37,7 +38,7 @@ func TestMemoryEnvironmentRepository_Store(t *testing.T) {
 func TestMemoryEnvironmentRepository_FindBySensorID_NoResults(t *testing.T) {
 	repo := repository.NewMemoryEnvironmentRepository()
 
-	readings, err := repo.FindBySensorID("nonexistent", 10)
+	readings, err := repo.FindBySensorID(context.Background(), "nonexistent", 10)
 	if err != nil {
 		t.Fatalf("expected no error, got %v", err)
 	}
@@ -58,12 +59,12 @@ func TestMemoryEnvironmentRepository_FindBySensorID_Limit(t *testing.T) {
 			Temperature: 20.0 + float64(i),
 			Humidity:    70.0,
 		}
-		if err := repo.Store(reading); err != nil {
+		if err := repo.Store(context.Background(), reading); err != nil {
 			t.Fatalf("store failed: %v", err)
 		}
 	}
 
-	readings, err := repo.FindBySensorID("esp32-001", 3)
+	readings, err := repo.FindBySensorID(context.Background(), "esp32-001", 3)
 	if err != nil {
 		t.Fatalf("expected no error, got %v", err)
 	}
@@ -87,12 +88,12 @@ func TestMemoryEnvironmentRepository_FindBySensorID_FiltersBySensor(t *testing.T
 			Temperature: 25.0,
 			Humidity:    75.0,
 		}
-		if err := repo.Store(reading); err != nil {
+		if err := repo.Store(context.Background(), reading); err != nil {
 			t.Fatalf("store failed: %v", err)
 		}
 	}
 
-	readings, err := repo.FindBySensorID("esp32-001", 10)
+	readings, err := repo.FindBySensorID(context.Background(), "esp32-001", 10)
 	if err != nil {
 		t.Fatalf("expected no error, got %v", err)
 	}

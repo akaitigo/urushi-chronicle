@@ -1,6 +1,7 @@
 package repository
 
 import (
+	"context"
 	"sync"
 
 	"github.com/akaitigo/urushi-chronicle/internal/domain"
@@ -21,7 +22,7 @@ func NewMemoryWorkRepository() *MemoryWorkRepository {
 }
 
 // FindByID retrieves a work by its ID. Returns ErrNotFound if it does not exist.
-func (r *MemoryWorkRepository) FindByID(id uuid.UUID) (*domain.Work, error) {
+func (r *MemoryWorkRepository) FindByID(_ context.Context, id uuid.UUID) (*domain.Work, error) {
 	r.mu.RLock()
 	defer r.mu.RUnlock()
 
@@ -34,7 +35,7 @@ func (r *MemoryWorkRepository) FindByID(id uuid.UUID) (*domain.Work, error) {
 }
 
 // FindAll retrieves all works from the repository.
-func (r *MemoryWorkRepository) FindAll() ([]domain.Work, error) {
+func (r *MemoryWorkRepository) FindAll(_ context.Context) ([]domain.Work, error) {
 	r.mu.RLock()
 	defer r.mu.RUnlock()
 
@@ -46,7 +47,7 @@ func (r *MemoryWorkRepository) FindAll() ([]domain.Work, error) {
 }
 
 // Create stores a new work. Returns ErrConflict if the ID already exists.
-func (r *MemoryWorkRepository) Create(work *domain.Work) error {
+func (r *MemoryWorkRepository) Create(_ context.Context, work *domain.Work) error {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 
@@ -59,7 +60,7 @@ func (r *MemoryWorkRepository) Create(work *domain.Work) error {
 }
 
 // Update replaces an existing work. Returns ErrNotFound if not present.
-func (r *MemoryWorkRepository) Update(work *domain.Work) error {
+func (r *MemoryWorkRepository) Update(_ context.Context, work *domain.Work) error {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 
@@ -72,7 +73,8 @@ func (r *MemoryWorkRepository) Update(work *domain.Work) error {
 }
 
 // Delete removes a work by ID. Returns ErrNotFound if not present.
-func (r *MemoryWorkRepository) Delete(id uuid.UUID) error {
+// The in-memory store does not cascade; callers delete related steps explicitly.
+func (r *MemoryWorkRepository) Delete(_ context.Context, id uuid.UUID) error {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 

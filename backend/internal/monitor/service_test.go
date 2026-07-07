@@ -1,6 +1,7 @@
 package monitor_test
 
 import (
+	"context"
 	"log"
 	"os"
 	"testing"
@@ -47,11 +48,11 @@ func TestService_ProcessReading_StoresReading(t *testing.T) {
 		Humidity:    75.0,
 	}
 
-	if err := svc.ProcessReading(reading); err != nil {
+	if err := svc.ProcessReading(context.Background(), reading); err != nil {
 		t.Fatalf("expected no error, got %v", err)
 	}
 
-	stored, err := envRepo.FindBySensorID("esp32-001", 10)
+	stored, err := envRepo.FindBySensorID(context.Background(), "esp32-001", 10)
 	if err != nil {
 		t.Fatalf("find failed: %v", err)
 	}
@@ -88,7 +89,7 @@ func TestService_ProcessReading_TriggersAlert(t *testing.T) {
 		Humidity:    75.0,
 	}
 
-	if err := svc.ProcessReading(reading); err != nil {
+	if err := svc.ProcessReading(context.Background(), reading); err != nil {
 		t.Fatalf("expected no error, got %v", err)
 	}
 
@@ -124,7 +125,7 @@ func TestService_ProcessReading_NoAlertWhenWithinRange(t *testing.T) {
 		Humidity:    75.0,
 	}
 
-	if err := svc.ProcessReading(reading); err != nil {
+	if err := svc.ProcessReading(context.Background(), reading); err != nil {
 		t.Fatalf("expected no error, got %v", err)
 	}
 
@@ -158,7 +159,7 @@ func TestService_ProcessReading_NoAlertForDisabledThreshold(t *testing.T) {
 		Humidity:    75.0,
 	}
 
-	if err := svc.ProcessReading(reading); err != nil {
+	if err := svc.ProcessReading(context.Background(), reading); err != nil {
 		t.Fatalf("expected no error, got %v", err)
 	}
 
@@ -191,7 +192,7 @@ func TestService_ProcessReading_NoAlertForDifferentSensor(t *testing.T) {
 		Humidity:    75.0,
 	}
 
-	if err := svc.ProcessReading(reading); err != nil {
+	if err := svc.ProcessReading(context.Background(), reading); err != nil {
 		t.Fatalf("expected no error, got %v", err)
 	}
 
@@ -212,7 +213,7 @@ func TestService_ProcessReading_InvalidReading(t *testing.T) {
 		Humidity:    75.0,
 	}
 
-	if err := svc.ProcessReading(reading); err == nil {
+	if err := svc.ProcessReading(context.Background(), reading); err == nil {
 		t.Error("expected error for invalid reading")
 	}
 }
@@ -242,7 +243,7 @@ func TestService_ProcessReading_HumidityAlert(t *testing.T) {
 		Humidity:    50.0, // below 70.0 minimum
 	}
 
-	if err := svc.ProcessReading(reading); err != nil {
+	if err := svc.ProcessReading(context.Background(), reading); err != nil {
 		t.Fatalf("expected no error, got %v", err)
 	}
 

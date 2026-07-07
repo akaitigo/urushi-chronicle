@@ -1,6 +1,7 @@
 package repository
 
 import (
+	"context"
 	"sort"
 	"sync"
 
@@ -33,7 +34,7 @@ func NewMemoryEnvironmentRepository() *MemoryEnvironmentRepository {
 
 // Store saves a single environment reading using a ring buffer.
 // When the buffer is full, the oldest entry is overwritten and its index entry is removed.
-func (r *MemoryEnvironmentRepository) Store(reading *domain.EnvironmentReading) error {
+func (r *MemoryEnvironmentRepository) Store(_ context.Context, reading *domain.EnvironmentReading) error {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 
@@ -82,7 +83,7 @@ func (r *MemoryEnvironmentRepository) removeFromIndex(sensorID string, pos int) 
 // FindBySensorID retrieves readings for a given sensor, ordered by time descending.
 // If limit <= 0, all readings are returned.
 // Uses the sensor_id index for O(k) lookup instead of O(n) full scan.
-func (r *MemoryEnvironmentRepository) FindBySensorID(sensorID string, limit int) ([]domain.EnvironmentReading, error) {
+func (r *MemoryEnvironmentRepository) FindBySensorID(_ context.Context, sensorID string, limit int) ([]domain.EnvironmentReading, error) {
 	r.mu.RLock()
 	defer r.mu.RUnlock()
 

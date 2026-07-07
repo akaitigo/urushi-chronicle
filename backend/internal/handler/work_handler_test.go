@@ -1,6 +1,7 @@
 package handler_test
 
 import (
+	"context"
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
@@ -346,7 +347,7 @@ func TestDeleteWork_CascadeDeletesSteps(t *testing.T) {
 
 	// Seed a process step for the work
 	stepID := uuid.New()
-	if err := stepRepo.Create(&domain.ProcessStep{
+	if err := stepRepo.Create(context.Background(), &domain.ProcessStep{
 		ID:        stepID,
 		WorkID:    workID,
 		Name:      "下塗り",
@@ -360,7 +361,7 @@ func TestDeleteWork_CascadeDeletesSteps(t *testing.T) {
 	}
 
 	// Verify step exists before delete
-	steps, err := stepRepo.FindByWorkID(workID)
+	steps, err := stepRepo.FindByWorkID(context.Background(), workID)
 	if err != nil {
 		t.Fatalf("failed to find steps: %v", err)
 	}
@@ -378,18 +379,75 @@ func TestDeleteWork_CascadeDeletesSteps(t *testing.T) {
 	}
 
 	// Verify work is deleted
-	_, err = workRepo.FindByID(workID)
+	_, err = workRepo.FindByID(context.Background(), workID)
 	if err == nil {
 		t.Error("expected work to be deleted, but FindByID returned no error")
 	}
 
 	// Verify steps are cascade-deleted
-	steps, err = stepRepo.FindByWorkID(workID)
+	steps, err = stepRepo.FindByWorkID(context.Background(), workID)
 	if err != nil {
 		t.Fatalf("failed to find steps after delete: %v", err)
 	}
 	if len(steps) != 0 {
 		t.Errorf("expected 0 steps after cascade delete, got %d", len(steps))
+	}
+}
+
+// fakeCascadingWorkRepo behaves like the PostgreSQL work repository: it reports
+// that related steps are deleted automatically via ON DELETE CASCADE.
+type fakeCascadingWorkRepo struct {
+	*repository.MemoryWorkRepository
+}
+
+func (f *fakeCascadingWorkRepo) CascadesStepDeletion() bool { return true }
+
+// spyStepRepo records whether DeleteByWorkID was invoked.
+type spyStepRepo struct {
+	*repository.MemoryStepRepository
+	deleteByWorkIDCalled bool
+}
+
+func (s *spyStepRepo) DeleteByWorkID(ctx context.Context, workID uuid.UUID) error {
+	s.deleteByWorkIDCalled = true
+	return s.MemoryStepRepository.DeleteByWorkID(ctx, workID)
+}
+
+// TestDeleteWork_PGCascade_SkipsExplicitStepDeletion verifies that when the work
+// repository cascades at the database level (PostgreSQL), the handler does NOT
+// also delete steps explicitly, avoiding a redundant double delete (#26).
+func TestDeleteWork_PGCascade_SkipsExplicitStepDeletion(t *testing.T) {
+	memWork := repository.NewMemoryWorkRepository()
+	workRepo := &fakeCascadingWorkRepo{MemoryWorkRepository: memWork}
+	stepRepo := &spyStepRepo{MemoryStepRepository: repository.NewMemoryStepRepository()}
+	h := handler.NewWorkHandler(workRepo, stepRepo)
+
+	workID := uuid.New()
+	now := time.Now().UTC()
+	memWork.Seed(&domain.Work{
+		ID:        workID,
+		Title:     "PGカスケード削除テスト",
+		Technique: domain.TechniqueMakie,
+		Status:    domain.WorkStatusInProgress,
+		StartedAt: now,
+		CreatedAt: now,
+		UpdatedAt: now,
+	})
+
+	req := httptest.NewRequest(http.MethodDelete, "/api/v1/works/"+workID.String(), nil)
+	rr := httptest.NewRecorder()
+	h.ServeHTTP(rr, req)
+
+	if rr.Code != http.StatusNoContent {
+		t.Fatalf("expected 204, got %d: %s", rr.Code, rr.Body.String())
+	}
+	if stepRepo.deleteByWorkIDCalled {
+		t.Error("expected explicit DeleteByWorkID to be skipped when the work repo cascades, but it was called")
+	}
+
+	// The work itself must still be gone.
+	if _, err := memWork.FindByID(context.Background(), workID); err == nil {
+		t.Error("expected work to be deleted")
 	}
 }
 

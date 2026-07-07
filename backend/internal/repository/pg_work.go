@@ -22,9 +22,15 @@ func NewPgWorkRepository(pool *pgxpool.Pool) *PgWorkRepository {
 	return &PgWorkRepository{pool: pool}
 }
 
+// CascadesStepDeletion reports that this backend deletes related process steps
+// automatically via the ON DELETE CASCADE foreign key on process_steps.work_id.
+// Callers can use this to skip redundant application-level step deletion.
+func (r *PgWorkRepository) CascadesStepDeletion() bool {
+	return true
+}
+
 // FindByID retrieves a work by its ID.
-func (r *PgWorkRepository) FindByID(id uuid.UUID) (*domain.Work, error) {
-	ctx := context.Background()
+func (r *PgWorkRepository) FindByID(ctx context.Context, id uuid.UUID) (*domain.Work, error) {
 	query := `
 		SELECT id, title, description, technique, material, status,
 		       started_at, completed_at, created_at, updated_at
@@ -46,8 +52,7 @@ func (r *PgWorkRepository) FindByID(id uuid.UUID) (*domain.Work, error) {
 }
 
 // FindAll retrieves all works ordered by creation time descending.
-func (r *PgWorkRepository) FindAll() ([]domain.Work, error) {
-	ctx := context.Background()
+func (r *PgWorkRepository) FindAll(ctx context.Context) ([]domain.Work, error) {
 	query := `
 		SELECT id, title, description, technique, material, status,
 		       started_at, completed_at, created_at, updated_at
@@ -83,8 +88,7 @@ func (r *PgWorkRepository) FindAll() ([]domain.Work, error) {
 }
 
 // Create inserts a new work. Returns ErrConflict if the ID already exists.
-func (r *PgWorkRepository) Create(work *domain.Work) error {
-	ctx := context.Background()
+func (r *PgWorkRepository) Create(ctx context.Context, work *domain.Work) error {
 	query := `
 		INSERT INTO works (id, title, description, technique, material, status,
 		                   started_at, completed_at, created_at, updated_at)
@@ -106,8 +110,7 @@ func (r *PgWorkRepository) Create(work *domain.Work) error {
 }
 
 // Update replaces an existing work. Returns ErrNotFound if not present.
-func (r *PgWorkRepository) Update(work *domain.Work) error {
-	ctx := context.Background()
+func (r *PgWorkRepository) Update(ctx context.Context, work *domain.Work) error {
 	query := `
 		UPDATE works
 		SET title = $2, description = $3, technique = $4, material = $5, status = $6,
@@ -129,8 +132,8 @@ func (r *PgWorkRepository) Update(work *domain.Work) error {
 }
 
 // Delete removes a work by ID. Returns ErrNotFound if not present.
-func (r *PgWorkRepository) Delete(id uuid.UUID) error {
-	ctx := context.Background()
+// Related process_steps are removed automatically via ON DELETE CASCADE.
+func (r *PgWorkRepository) Delete(ctx context.Context, id uuid.UUID) error {
 	query := `DELETE FROM works WHERE id = $1`
 	tag, err := r.pool.Exec(ctx, query, id)
 	if err != nil {
