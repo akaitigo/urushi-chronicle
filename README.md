@@ -26,10 +26,28 @@ cd backend && go mod download && go build ./...
 cd frontend && npm install && npm run dev
 ```
 
-> **注意**: `docker-entrypoint-initdb.d` にマウントされたマイグレーションSQLは、PostgreSQLの初回起動時のみ実行されます。スキーマを変更した場合は、既存のボリュームを削除してから再起動してください:
+## データベースマイグレーション
+
+スキーマは `backend/migrations/*.up.sql`（`NNN_説明.up.sql` 命名）で管理し、付属の
+マイグレーションランナーで適用する。`schema_migrations` テーブルで適用済みバージョンを
+追跡するため、`migrate` は冪等（未適用分のみ実行）。
+
+```bash
+# DATABASE_URL を設定して未適用のマイグレーションを適用する
+export DATABASE_URL=postgres://urushi:urushi@localhost:5432/urushi_chronicle?sslmode=disable
+make migrate
+# または直接:
+cd backend && go run ./cmd/migrate
+```
+
+環境変数:
+
+- `DATABASE_URL`（必須）: PostgreSQL接続文字列
+- `MIGRATIONS_DIR`（任意）: `*.up.sql` の配置ディレクトリ。デフォルト `migrations`
+
+> **注意**: `docker-entrypoint-initdb.d` にマウントされたマイグレーションSQLは、PostgreSQLの初回起動時のみ実行されます。以降のスキーマ変更は `make migrate` で適用してください。既存ボリュームを作り直す場合:
 > ```bash
-> docker compose down -v
-> docker compose up -d
+> docker compose down -v && docker compose up -d
 > ```
 
 ## 開発コマンド

@@ -16,6 +16,25 @@ jobs:
     defaults:
       run:
         working-directory: backend
+    services:
+      # TimescaleDB (not plain postgres) is required: the schema uses the
+      # timescaledb extension and create_hypertable. This runs the PostgreSQL
+      # integration tests that are otherwise skipped when DATABASE_URL is unset.
+      postgres:
+        image: timescale/timescaledb:2.17.0-pg16
+        env:
+          POSTGRES_USER: urushi
+          POSTGRES_PASSWORD: urushi
+          POSTGRES_DB: urushi_chronicle
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U urushi -d urushi_chronicle"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      DATABASE_URL: postgres://urushi:urushi@localhost:5432/urushi_chronicle?sslmode=disable
     steps:
       - uses: actions/checkout@v7
 
@@ -25,6 +44,9 @@ jobs:
 
       - name: Build
         run: go build ./...
+
+      - name: Apply migrations
+        run: go run ./cmd/migrate
 
       - name: Test
         run: go test -v -race ./...

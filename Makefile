@@ -1,4 +1,4 @@
-.PHONY: build test lint format check quality clean backend-check frontend-check
+.PHONY: build test lint format check quality clean backend-check frontend-check migrate
 
 build:
 	cd backend && go build ./...
@@ -18,6 +18,10 @@ format:
 
 check: lint test build
 	@echo "All checks passed."
+
+# Apply pending SQL migrations. Requires DATABASE_URL (e.g. source your .env first).
+migrate:
+	cd backend && go run ./cmd/migrate
 
 quality:
 	@echo "=== Quality Gate ==="
