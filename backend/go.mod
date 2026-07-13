@@ -5,7 +5,7 @@ go 1.25.8
 require (
 	cloud.google.com/go/storage v1.63.0
 	github.com/google/uuid v1.6.0
-	github.com/jackc/pgx/v5 v5.9.1
+	github.com/jackc/pgx/v5 v5.10.0
 )
 
 require (
